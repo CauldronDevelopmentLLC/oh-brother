@@ -97,9 +97,14 @@ for row in table:
 
 # Print SNMP info
 print
-print '  serial =', serial
-print '   model =', model
-print '    spec =', spec
+print '      serial =', serial
+print '       model =', model
+print '        spec =', spec
+
+print '   firmwares'
+for entry in firmInfo:
+    print '            id = %(id)s, version = %(version)s' % entry
+
 print
 
 
