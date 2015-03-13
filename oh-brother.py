@@ -117,7 +117,6 @@ for entry in firmInfo:
     ET.SubElement(firm, 'VERSION').text = entry['version']
 
 requestInfo = ET.tostring(xml.getroot(), encoding = 'utf8')
-requestInfo = open('request.xml').read()
 
 
 # We need SSLv3
@@ -151,6 +150,16 @@ print 'done'
 
 # Parse response
 xml = ET.fromstring(response)
+
+
+# Check version
+versionCheck = xml.find('FIRMUPDATEINFO/VERSIONCHECK')
+if versionCheck is not None and versionCheck.text == '1':
+  print 'Firmware already up to date'
+  sys.exit(0)
+
+
+# Get firmware URL
 firmwareURL = xml.find('FIRMUPDATEINFO/PATH').text
 filename = firmwareURL.split('/')[-1]
 
