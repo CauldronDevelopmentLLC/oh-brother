@@ -1,5 +1,5 @@
 # Oh Brother!
-Oh Brother! is a simple cross-platform utility written in Pything which can
+Oh Brother! is a simple cross-platform utility written in Python which can
 update Brother printer firmwares.  It was born out of frustration with Brother
 for not providing a tool which works in Linux.  This tool should work on any
 platform that has Python with ```python-pysnmp4```.  It was tested with Python
