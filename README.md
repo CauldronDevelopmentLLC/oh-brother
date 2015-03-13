@@ -40,4 +40,4 @@ firmware has completed updating.
 YMMV.  Please feel free to submit a pull-request.
 
 An alternate bash script for firmware download can be found
-[here](https://cbompart.wordpress.com/2014/05/26/brother-printer-firmware-part-2/)
+[here](https://cbompart.wordpress.com/2014/05/26/brother-printer-firmware-part-2/).
