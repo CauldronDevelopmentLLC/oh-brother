@@ -15,6 +15,15 @@ I found information on how to do this
 sudo apt-get install python-pysnmp4
 ```
 
+# What it does
+Curently the script does the following:
+
+  1. Queries the printers information via the SNMP protocol.
+  2. Prints SNMP info to screen.
+  3. Queries Brother servers for the latest firmware.
+  4. Exits if the firmware is up to date.
+  5. Otherwise, downloads the firmware from Brother.
+  6. Uploads the firmware via FTP to the printer.
 
 # How to use it
 You need to know both the IP address of your printer and the *admin* password.
