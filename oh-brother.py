@@ -18,11 +18,10 @@
 reqInfo = '''
 <REQUESTINFO>
     <FIRMUPDATETOOLINFO>
-        <FIRMCATEGORY>MAIN</FIRMCATEGORY>
+        <FIRMCATEGORY></FIRMCATEGORY>
         <OS>LINUX</OS>
         <INSPECTMODE>1</INSPECTMODE>
     </FIRMUPDATETOOLINFO>
- 
     <FIRMUPDATEINFO>
         <MODELINFO>
             <SELIALNO></SELIALNO>
@@ -30,6 +29,7 @@ reqInfo = '''
             <SPEC></SPEC>
             <DRIVER></DRIVER>
             <FIRMINFO>
+              <FIRM></FIRM>
             </FIRMINFO>
         </MODELINFO>
         <DRIVERCNT>1</DRIVERCNT>
@@ -39,6 +39,8 @@ reqInfo = '''
     </FIRMUPDATEINFO>
 </REQUESTINFO>
 '''
+
+password = None
 
 
 from pysnmp.entity.rfc3413.oneliner import cmdgen
@@ -92,7 +94,7 @@ for row in table:
             if name == 'SPEC': spec = value
             if name == 'FIRMID': firmId = value
             if name == 'FIRMVER':
-                firmInfo.append({'id': firmId, 'version': value})
+                firmInfo.append({'cat': firmId, 'version': value})
 
 
 # Print SNMP info
@@ -103,25 +105,9 @@ print '        spec =', spec
 
 print '   firmwares'
 for entry in firmInfo:
-    print '            id = %(id)s, version = %(version)s' % entry
+    print '            category = %(cat)s, version = %(version)s' % entry
 
 print
-
-
-# Build XML request info
-xml = ET.ElementTree(ET.fromstring(reqInfo))
-modelInfo = xml.find('FIRMUPDATEINFO/MODELINFO')
-modelInfo.find('SELIALNO').text = serial
-modelInfo.find('NAME').text = model
-modelInfo.find('SPEC').text = spec
-
-info = modelInfo.find('FIRMINFO')
-for entry in firmInfo:
-    firm = ET.SubElement(info, 'FIRM')
-    ET.SubElement(firm, 'ID').text = entry['id']
-    ET.SubElement(firm, 'VERSION').text = entry['version']
-
-requestInfo = ET.tostring(xml.getroot(), encoding = 'utf8')
 
 
 # We need SSLv3
@@ -137,73 +123,106 @@ def sslwrap(func):
 ssl.wrap_socket = sslwrap(ssl.wrap_socket)
 
 
-# Request firmware data
-url = 'https://firmverup.brother.co.jp/kne_bh7_update_nt_ssl/ifax2.asmx/' + \
-    'fileUpdate'
-hdrs = {'Content-Type': 'text/xml'}
+def update_firmware(cat, version):
+  print 'Updating %s version %s' % (cat, version)
 
-print 'Looking up printer firmware...',
-sys.stdout.flush()
+  # Build XML request info
+  xml = ET.ElementTree(ET.fromstring(reqInfo))
 
-import urllib2
-req = urllib2.Request(url, requestInfo, hdrs)
-response = urllib2.urlopen(req)
-response = response.read()
+  xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY').text = cat
 
-print 'done'
+  modelInfo = xml.find('FIRMUPDATEINFO/MODELINFO')
+  modelInfo.find('SELIALNO').text = serial
+  modelInfo.find('NAME').text = model
+  modelInfo.find('SPEC').text = spec
 
+  firm = modelInfo.find('FIRMINFO/FIRM')
+  ET.SubElement(firm, 'ID').text = cat
+  ET.SubElement(firm, 'VERSION').text = version
 
-# Parse response
-xml = ET.fromstring(response)
-
-
-# Check version
-versionCheck = xml.find('FIRMUPDATEINFO/VERSIONCHECK')
-if versionCheck is not None and versionCheck.text == '1':
-  print 'Firmware already up to date'
-  sys.exit(0)
+  requestInfo = ET.tostring(xml.getroot(), encoding = 'utf8')
 
 
-# Get firmware URL
-firmwareURL = xml.find('FIRMUPDATEINFO/PATH').text
-filename = firmwareURL.split('/')[-1]
+  # Request firmware data
+  url = 'https://firmverup.brother.co.jp/kne_bh7_update_nt_ssl/ifax2.asmx/' + \
+      'fileUpdate'
+  hdrs = {'Content-Type': 'text/xml'}
+
+  print 'Looking up printer firmware...',
+  sys.stdout.flush()
+
+  import urllib2
+  req = urllib2.Request(url, requestInfo, hdrs)
+  response = urllib2.urlopen(req)
+  response = response.read()
+
+  print 'done'
 
 
-# Download firmware
-f = open(filename, 'w')
-
-print 'Downloading firmware %s...' % filename,
-sys.stdout.flush()
-
-req = urllib2.Request(firmwareURL)
-response = urllib2.urlopen(req)
-
-while True:
-    block = response.read(102400)
-    if not block: break
-    f.write(block)
-    sys.stdout.write('.')
-    sys.stdout.flush()
-
-print 'done'
-f.close()
+  # Parse response
+  xml = ET.fromstring(response)
 
 
-# Get printer password
-import getpass
+  # Check version
+  versionCheck = xml.find('FIRMUPDATEINFO/VERSIONCHECK')
+  if versionCheck is not None and versionCheck.text == '1':
+    print 'Firmware already up to date'
+    return
+
+
+  # Get firmware URL
+  firmwareURL = xml.find('FIRMUPDATEINFO/PATH').text
+  filename = firmwareURL.split('/')[-1]
+
+
+  # Download firmware
+  f = open(filename, 'w')
+
+  print 'Downloading firmware %s...' % filename,
+  sys.stdout.flush()
+
+  req = urllib2.Request(firmwareURL)
+  response = urllib2.urlopen(req)
+
+  while True:
+      block = response.read(102400)
+      if not block: break
+      f.write(block)
+      sys.stdout.write('.')
+      sys.stdout.flush()
+
+  print 'done'
+  f.close()
+
+
+  # Get printer password
+  if password is None:
+    import getpass
+    print
+    password = getpass.getpass('Enter printer admin password: ')
+
+
+  # Upload firmware to printer
+  from ftplib import FTP
+
+  print 'Uploading firmware to printer...',
+  sys.stdout.flush()
+
+  ftp = FTP(ip, user = password) # Yes send password as user
+  ftp.storbinary('STOR ' + filename, open(filename, 'r'))
+  ftp.quit()
+
+  print 'done'
+
+  print
+  print 'Wait for printer to finish updating and reboot before continuing.'
+  raw_input("Press Enter to continue...")
+
+
+for entry in firmInfo:
+  print
+  update_firmware(entry['cat'], entry['version'])
+
 
 print
-password = getpass.getpass('Enter printer admin password: ')
-
-
-# Upload firmware to printer
-from ftplib import FTP
-
-print 'Uploading firmware to printer...',
-sys.stdout.flush()
-
-ftp = FTP(ip, user = password) # Yes send password as user
-ftp.storbinary('STOR ' + filename, open(filename, 'r'))
-ftp.quit()
-
-print 'done'
+print 'Success'
