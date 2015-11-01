@@ -124,6 +124,8 @@ ssl.wrap_socket = sslwrap(ssl.wrap_socket)
 
 
 def update_firmware(cat, version):
+  global password
+
   print 'Updating %s version %s' % (cat, version)
 
   # Build XML request info
