@@ -41,19 +41,30 @@ reqInfo = '''
 '''
 
 password = None
-
+verbose = False
 
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 import xml.etree.ElementTree as ET
+import xml.dom.minidom as minidom
 import sys
 
 
+def print_pretty(elem):
+    s = ET.tostring(elem, 'utf-8')
+    print minidom.parseString(s).toprettyxml(indent = ' ')
+
+
 # Parse args
-if len(sys.argv) != 2:
-  print 'Usage: %s <printer IP address>' % sys.argv[0]
+if len(sys.argv) < 2:
+  print 'Usage: %s [OPTIONS] <printer IP address>' % sys.argv[0]
+  print
+  print 'Options:'
+  print '  -v          Verbose mode'
   sys.exit(1)
 
-ip = sys.argv[1]
+for arg in sys.argv[1:]:
+  if arg == '-v': verbose = True
+  else: ip = arg
 
 
 # Get SMNP data
@@ -80,6 +91,8 @@ model = None
 spec = None
 firmId = None
 firmInfo = []
+
+if verbose: print table
 
 for row in table:
     for name, value in row:
@@ -164,6 +177,7 @@ def update_firmware(cat, version):
   # Parse response
   xml = ET.fromstring(response)
 
+  if verbose: print_pretty(xml)
 
   # Check version
   versionCheck = xml.find('FIRMUPDATEINFO/VERSIONCHECK')
@@ -173,7 +187,11 @@ def update_firmware(cat, version):
 
 
   # Get firmware URL
-  firmwareURL = xml.find('FIRMUPDATEINFO/PATH').text
+  firmwareURL = xml.find('FIRMUPDATEINFO/PATH')
+  if firmwareURL is None:
+    print 'No firmware update info path found'
+    sys.exit(1)
+  firmwareURL = firmwareURL.text
   filename = firmwareURL.split('/')[-1]
 
 
