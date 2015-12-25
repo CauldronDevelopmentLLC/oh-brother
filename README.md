@@ -3,13 +3,13 @@ Oh Brother! is a simple cross-platform utility written in Python which can
 update Brother printer firmwares.  It was born out of frustration with Brother
 for not providing a tool which works in Linux.  This tool should work on any
 platform that has Python with ```python-pysnmp4```.  It was tested with Python
-v2.7.8.
+v2.7.8 and v2.7.5.
 
 I found information on how to do this
 [here](https://cbompart.wordpress.com/2014/02/05/printer-update/) and
 [here](http://pschla.blogspot.com/2013/08/resurrecting-brother-hl-2250dn-after.html).
 
-# Install prerequisites on Debian or Ubuntu
+# Install prerequisites on Debian-based distributions (e.g. Debian/Mint/Ubuntu)
 
 ```
 sudo apt-get install python-pysnmp4
