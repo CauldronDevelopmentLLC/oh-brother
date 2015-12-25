@@ -67,8 +67,8 @@ for arg in sys.argv[1:]:
   else: ip = arg
 
 
-# Get SMNP data
-print 'Getting SNMP data from printer at %s...' % ip,
+# Get SNMP data
+print 'Getting SNMP data from printer at %s...' % ip
 sys.stdout.flush()
 
 cg = cmdgen.CommandGenerator()
@@ -171,7 +171,7 @@ def update_firmware(cat, version):
       'fileUpdate'
   hdrs = {'Content-Type': 'text/xml'}
 
-  print 'Looking up printer firmware...',
+  print 'Looking up printer firmware...'
   sys.stdout.flush()
 
   import urllib2
@@ -206,7 +206,7 @@ def update_firmware(cat, version):
   # Download firmware
   f = open(filename, 'w')
 
-  print 'Downloading firmware %s...' % filename,
+  print 'Downloading firmware %s...' % filename
   sys.stdout.flush()
 
   req = urllib2.Request(firmwareURL)
@@ -233,7 +233,7 @@ def update_firmware(cat, version):
   # Upload firmware to printer
   from ftplib import FTP
 
-  print 'Uploading firmware to printer...',
+  print 'Uploading firmware to printer...'
   sys.stdout.flush()
 
   ftp = FTP(ip, user = password) # Yes send password as user
