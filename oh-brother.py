@@ -172,7 +172,7 @@ def update_firmware(cat, version):
       'fileUpdate'
   hdrs = {'Content-Type': 'text/xml'}
 
-  print 'Looking up printer firmware...'
+  print 'Looking up printer firmware info at vendor server...'
   sys.stdout.flush()
 
   import urllib2
@@ -207,7 +207,7 @@ def update_firmware(cat, version):
   # Download firmware
   f = open(filename, 'w')
 
-  print 'Downloading firmware %s...' % filename
+  print 'Downloading firmware file %s from vendor server...' % filename
   sys.stdout.flush()
 
   req = urllib2.Request(firmwareURL)
