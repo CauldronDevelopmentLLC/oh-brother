@@ -16,7 +16,7 @@ sudo apt-get install python-pysnmp4
 ```
 
 # What it does
-Curently the script does the following:
+Currently the script does the following:
 
   * Query the printer's information via the SNMP protocol.
   * Print SNMP info to screen.
