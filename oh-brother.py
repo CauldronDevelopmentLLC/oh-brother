@@ -42,6 +42,7 @@ reqInfo = '''
 
 password = None
 verbose = False
+show_firmware_upgrade_safety_prompt = True
 
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 import xml.etree.ElementTree as ET
@@ -222,6 +223,14 @@ def update_firmware(cat, version):
   print 'done'
   f.close()
 
+  if show_firmware_upgrade_safety_prompt:
+    print 'About to upload the firmware to printer.'
+    print 'This is a dangerous action since it is potentially destructive.'
+    print 'Thus please double-check / review to ensure that:'
+    print '- firmware file version is compatible with your hardware'
+    print '- network connection is maximally reliable (strongly prefer wired connection to WLAN)'
+    print '- power supply is maximally reliable (may be achieved by using a UPS)'
+    raw_input("Press Ctrl-C to prevent firmware upgrade, or possibly Enter to continue...")
 
   # Get printer password
   if password is None:
@@ -233,7 +242,7 @@ def update_firmware(cat, version):
   # Upload firmware to printer
   from ftplib import FTP
 
-  print 'Uploading firmware to printer...'
+  print 'Now uploading firmware to printer (DO NOT REMOVE POWER!)...'
   sys.stdout.flush()
 
   ftp = FTP(ip, user = password) # Yes send password as user
