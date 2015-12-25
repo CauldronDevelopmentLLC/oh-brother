@@ -23,6 +23,7 @@ Currently the script does the following:
   * For each firmware type:
     * Query Brother servers for the latest firmware.
     * Download the firmware from Brother.
+    * Display firmware info, then ask user whether to proceed with updating.
     * Upload the firmware via FTP to the printer.
     * Wait for user to signal that the update is done.
 
