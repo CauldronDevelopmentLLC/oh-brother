@@ -53,6 +53,8 @@ reqInfo = '''
 
 password = None
 verbose = False
+debug_dump_web_service_request_content = False
+debug_dump_web_service_response_content = False
 show_firmware_upgrade_safety_prompt = True
 
 from pysnmp.entity.rfc3413.oneliner import cmdgen
@@ -177,6 +179,9 @@ def update_firmware(cat, version):
 
   requestInfo = ET.tostring(xml.getroot(), encoding = 'utf8')
 
+  if debug_dump_web_service_request_content:
+    print 'request: %s' % requestInfo
+
 
   # Request firmware data
   url = 'https://firmverup.brother.co.jp/kne_bh7_update_nt_ssl/ifax2.asmx/' + \
@@ -193,6 +198,8 @@ def update_firmware(cat, version):
 
   print 'done'
 
+  if debug_dump_web_service_response_content:
+    print 'response: %s' % response
 
   # Parse response
   xml = ET.fromstring(response)
