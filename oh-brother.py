@@ -15,6 +15,17 @@
 # GNU General Public License for more details.
 
 
+# TODO:
+# - should definitely attempt to have this functionality
+#   hooked up to / integrated with
+#   the new generic fwupd.org Linux service
+
+
+# Yes indeed, "SELIALNO"
+# (as used both in this here document and in script parts below)
+# is a spelling issue crime committed by original vendor parts
+# and thus expected to remain exactly as wrongly written.
+# Thus it obviously should *not* be "corrected" here.
 reqInfo = '''
 <REQUESTINFO>
     <FIRMUPDATETOOLINFO>
