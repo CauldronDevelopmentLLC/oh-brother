@@ -15,6 +15,17 @@
 # GNU General Public License for more details.
 
 
+# TODO:
+# - should definitely attempt to have this functionality
+#   hooked up to / integrated with
+#   the new generic fwupd.org Linux service
+
+
+# Yes indeed, "SELIALNO"
+# (as used both in this here document and in script parts below)
+# is a spelling issue crime committed by original vendor parts
+# and thus expected to remain exactly as wrongly written.
+# Thus it obviously should *not* be "corrected" here.
 reqInfo = '''
 <REQUESTINFO>
     <FIRMUPDATETOOLINFO>
@@ -42,6 +53,9 @@ reqInfo = '''
 
 password = None
 verbose = False
+debug_dump_web_service_request_content = False
+debug_dump_web_service_response_content = False
+show_firmware_upgrade_safety_prompt = True
 
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 import xml.etree.ElementTree as ET
@@ -67,8 +81,8 @@ for arg in sys.argv[1:]:
   else: ip = arg
 
 
-# Get SMNP data
-print 'Getting SNMP data from printer at %s...' % ip,
+# Get SNMP data
+print 'Getting SNMP data from printer at %s...' % ip
 sys.stdout.flush()
 
 cg = cmdgen.CommandGenerator()
@@ -144,7 +158,15 @@ def update_firmware(cat, version):
   # Build XML request info
   xml = ET.ElementTree(ET.fromstring(reqInfo))
 
-  xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY').text = cat
+  # At least for MFC-J4510DW M1405200717:EFAC (see Internet dumps)
+  # and MFC-J4625DW,
+  # this element's value is *not* equal to per-firmware cat[egory] value
+  # (a "MAIN"-deviating "FIRM" in these cases!),
+  # but rather a *fixed* "MAIN" value,
+  # thus I assume this to model-unconditionally have been a BUG
+  # (which causes a failure response of the web service request).
+  #xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY').text = cat
+  xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY').text = 'MAIN'
 
   modelInfo = xml.find('FIRMUPDATEINFO/MODELINFO')
   modelInfo.find('SELIALNO').text = serial
@@ -157,13 +179,16 @@ def update_firmware(cat, version):
 
   requestInfo = ET.tostring(xml.getroot(), encoding = 'utf8')
 
+  if debug_dump_web_service_request_content:
+    print 'request: %s' % requestInfo
+
 
   # Request firmware data
   url = 'https://firmverup.brother.co.jp/kne_bh7_update_nt_ssl/ifax2.asmx/' + \
       'fileUpdate'
   hdrs = {'Content-Type': 'text/xml'}
 
-  print 'Looking up printer firmware...',
+  print 'Looking up printer firmware info at vendor server...'
   sys.stdout.flush()
 
   import urllib2
@@ -173,6 +198,8 @@ def update_firmware(cat, version):
 
   print 'done'
 
+  if debug_dump_web_service_response_content:
+    print 'response: %s' % response
 
   # Parse response
   xml = ET.fromstring(response)
@@ -198,7 +225,7 @@ def update_firmware(cat, version):
   # Download firmware
   f = open(filename, 'w')
 
-  print 'Downloading firmware %s...' % filename,
+  print 'Downloading firmware file %s from vendor server...' % filename
   sys.stdout.flush()
 
   req = urllib2.Request(firmwareURL)
@@ -214,6 +241,14 @@ def update_firmware(cat, version):
   print 'done'
   f.close()
 
+  if show_firmware_upgrade_safety_prompt:
+    print 'About to upload the firmware to printer.'
+    print 'This is a dangerous action since it is potentially destructive.'
+    print 'Thus please double-check / review to ensure that:'
+    print '- firmware file version is compatible with your hardware'
+    print '- network connection is maximally reliable (strongly prefer wired connection to WLAN)'
+    print '- power supply is maximally reliable (may be achieved by using a UPS)'
+    raw_input("Press Ctrl-C to prevent firmware upgrade, or possibly Enter to continue...")
 
   # Get printer password
   if password is None:
@@ -225,7 +260,7 @@ def update_firmware(cat, version):
   # Upload firmware to printer
   from ftplib import FTP
 
-  print 'Uploading firmware to printer...',
+  print 'Now uploading firmware to printer (DO NOT REMOVE POWER!)...'
   sys.stdout.flush()
 
   ftp = FTP(ip, user = password) # Yes send password as user
