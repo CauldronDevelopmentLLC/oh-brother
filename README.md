@@ -11,10 +11,16 @@ I found information on how to do this
 
 # Install prerequisites
 
-## on Debian-based distributions (e.g. Debian/Mint/Ubuntu)
+## On Debian-based distributions (e.g. Debian/Mint/Ubuntu)
 
 ```
-sudo apt-get install python-pysnmp4
+sudo apt-get install -y python-pysnmp4
+```
+
+## On RedHat-based distributions (e.g. Fedora/CentOS)
+
+```
+sudo yum install python-pysnmp
 ```
 
 ## On OSX or Windows with Python installer (PIP)
