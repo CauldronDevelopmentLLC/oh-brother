@@ -9,6 +9,9 @@ I found information on how to do this
 [here](https://cbompart.wordpress.com/2014/02/05/printer-update/) and
 [here](http://pschla.blogspot.com/2013/08/resurrecting-brother-hl-2250dn-after.html).
 
+# Disclaimer
+I hope people find this project useful but I am not getting paid for it.  If you want to support this project, please [make a donation](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=J23DKKKYZRTA4).  If you think Brother should support this project [please tell them so](http://www.brother-usa.com/askus/).  Read the license for the full disclaimer.
+
 # Install prerequisites
 
 ## On Debian-based distributions (e.g. Debian/Mint/Ubuntu)
