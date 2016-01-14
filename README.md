@@ -10,7 +10,7 @@ I found information on how to do this
 [here](http://pschla.blogspot.com/2013/08/resurrecting-brother-hl-2250dn-after.html).
 
 # Disclaimer
-I hope people find this project useful but I am not getting paid for it.  If you want to support this project, please [make a donation](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=J23DKKKYZRTA4).  If you think Brother should support this project [please tell them so](http://www.brother-usa.com/askus/).  Read the license for the full disclaimer.
+I hope people find this project useful but I am not getting paid for it.  If you want to support this project, please [![donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=J23DKKKYZRTA4).  If you think Brother should support this project [please tell them so](http://www.brother-usa.com/askus/).  Read the license for the full disclaimer.
 
 # Install prerequisites
 
