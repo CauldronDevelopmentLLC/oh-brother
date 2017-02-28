@@ -51,15 +51,10 @@ reqInfo = '''
 </REQUESTINFO>
 '''
 
-password = None
-verbose = False
-debug_dump_web_service_request_content = False
-debug_dump_web_service_response_content = False
-show_firmware_upgrade_safety_prompt = True
-
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
+import argparse
 import sys
 
 
@@ -67,28 +62,35 @@ def print_pretty(elem):
     s = ET.tostring(elem, 'utf-8')
     print minidom.parseString(s).toprettyxml(indent = ' ')
 
+usage = '%(prog)s [OPTIONS] <printer IP address>'
+description = 'A platform independent tool for updating Brother firmwares'
 
 # Parse args
-if len(sys.argv) < 2:
-  print 'Usage: %s [OPTIONS] <printer IP address>' % sys.argv[0]
-  print
-  print 'Options:'
-  print '  -v          Verbose mode'
-  sys.exit(1)
+parser = argparse.ArgumentParser(usage = usage, description = description)
 
-for arg in sys.argv[1:]:
-  if arg == '-v': verbose = True
-  else: ip = arg
+parser.add_argument('ip', metavar = 'IP', help = 'printer IP address')
+parser.add_argument('-v', '--verbose', action = 'store_true',
+                    help = 'Verbose output')
+parser.add_argument('-c', '--category',
+                    help = 'Force a specific firmware category')
+parser.add_argument('-f', '--version', default = 'B0000000000',
+                    help = 'Force a specific firmware version, must be used '
+                    'with --category')
+parser.add_argument('-t', '--test', action = 'store_true',
+                    help = "Test only, don't do upgrades")
+parser.add_argument('-p', '--password', help = "Printer admin password")
+
+args = parser.parse_args()
 
 
 # Get SNMP data
-print 'Getting SNMP data from printer at %s...' % ip
+print 'Getting SNMP data from printer at %s...' % args.ip
 sys.stdout.flush()
 
 cg = cmdgen.CommandGenerator()
 error, status, index, table = cg.nextCmd(
     cmdgen.CommunityData('public'),
-    cmdgen.UdpTransportTarget((ip, 161)),
+    cmdgen.UdpTransportTarget((args.ip, 161)),
     '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
 
 print 'done'
@@ -106,7 +108,7 @@ spec = None
 firmId = None
 firmInfo = []
 
-if verbose: print table
+if args.verbose: print table
 
 for row in table:
     for name, value in row:
@@ -137,6 +139,14 @@ for entry in firmInfo:
 print
 
 
+# Override category and version
+if args.category:
+    firmInfo = [{'cat': args.category, 'version': args.version}]
+
+elif args.category:
+    for entry in firmInfo: entry.cat = args.category
+
+
 # We need SSLv3
 import ssl
 from functools import wraps
@@ -151,7 +161,7 @@ ssl.wrap_socket = sslwrap(ssl.wrap_socket)
 
 
 def update_firmware(cat, version):
-  global password
+  global args
 
   print 'Updating %s version %s' % (cat, version)
 
@@ -182,9 +192,7 @@ def update_firmware(cat, version):
 
   requestInfo = ET.tostring(xml.getroot(), encoding = 'utf8')
 
-  if debug_dump_web_service_request_content:
-    print 'request: %s' % requestInfo
-
+  if args.verbose: print 'request: %s' % requestInfo
 
   # Request firmware data
   url = 'https://firmverup.brother.co.jp/kne_bh7_update_nt_ssl/ifax2.asmx/' + \
@@ -201,13 +209,10 @@ def update_firmware(cat, version):
 
   print 'done'
 
-  if debug_dump_web_service_response_content:
-    print 'response: %s' % response
+  if args.verbose: print 'response: %s' % response
 
   # Parse response
   xml = ET.fromstring(response)
-
-  if verbose: print_pretty(xml)
 
   # Check version
   versionCheck = xml.find('FIRMUPDATEINFO/VERSIONCHECK')
@@ -244,20 +249,21 @@ def update_firmware(cat, version):
   print 'done'
   f.close()
 
-  if show_firmware_upgrade_safety_prompt:
-    print 'About to upload the firmware to printer.'
-    print 'This is a dangerous action since it is potentially destructive.'
-    print 'Thus please double-check / review to ensure that:'
-    print '- firmware file version is compatible with your hardware'
-    print '- network connection is maximally reliable (strongly prefer wired connection to WLAN)'
-    print '- power supply is maximally reliable (may be achieved by using a UPS)'
-    raw_input("Press Ctrl-C to prevent firmware upgrade, or possibly Enter to continue...")
+  if args.test: return
+
+  print 'About to upload the firmware to printer.'
+  print 'This is a dangerous action since it is potentially destructive.'
+  print 'Thus please double-check / review to ensure that:'
+  print '- firmware file version is compatible with your hardware'
+  print '- network connection is reliable (prefer wired connection to WLAN)'
+  print '- power is reliable'
+  raw_input("Press Ctrl-C to prevent upgrade or Enter to continue...")
 
   # Get printer password
-  if password is None:
+  if args.password is None:
     import getpass
     print
-    password = getpass.getpass('Enter printer admin password: ')
+    args.password = getpass.getpass('Enter printer admin password: ')
 
 
   # Upload firmware to printer
@@ -266,7 +272,7 @@ def update_firmware(cat, version):
   print 'Now uploading firmware to printer (DO NOT REMOVE POWER!)...'
   sys.stdout.flush()
 
-  ftp = FTP(ip, user = password) # Yes send password as user
+  ftp = FTP(args.ip, user = args.password) # Yes send password as user
   ftp.storbinary('STOR ' + filename, open(filename, 'r'))
   ftp.quit()
 

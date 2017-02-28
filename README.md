@@ -55,9 +55,21 @@ firmware has completed updating.
 ```
 
 # If it doesn't work for you
-YMMV.  Please feel free to submit a pull-request.
+YMMV.
 
+## Set admin password
 Make sure you've set the admin password on the printer via the web interface.
 
-An alternate bash script for firmware download can be found
-[here](https://cbompart.wordpress.com/2014/05/26/brother-printer-firmware-part-2/).
+## Use ``--category``
+Try specifying ``--category`` on the command line.  E.g.:
+
+    ./oh-brother.py --category MAIN <printer IP>
+
+This will force the script to update a specific firmware regardless of the
+version you currently have.
+
+## Submit a PR
+Please feel free to submit a pull-request.
+
+## Other options
+& An alternate bash script for firmware download can be found [here](https://cbompart.wordpress.com/2014/05/26/brother-printer-firmware-part-2/).
