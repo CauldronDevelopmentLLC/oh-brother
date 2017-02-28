@@ -165,8 +165,11 @@ def update_firmware(cat, version):
   # but rather a *fixed* "MAIN" value which is a completely unrelated item,
   # thus I assume this to model-unconditionally have been a BUG
   # (which causes a failure response of the web service request).
-  #xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY').text = cat
-  xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY').text = 'MAIN'
+  #xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY').text = 'MAIN'
+  #
+  # Brother may have fixed this.
+
+  xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY').text = cat
 
   modelInfo = xml.find('FIRMUPDATEINFO/MODELINFO')
   modelInfo.find('SELIALNO').text = serial
