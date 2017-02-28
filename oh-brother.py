@@ -188,7 +188,11 @@ def update_firmware(cat, version):
 
   firm = modelInfo.find('FIRMINFO/FIRM')
   ET.SubElement(firm, 'ID').text = cat
-  ET.SubElement(firm, 'VERSION').text = version
+
+  if cat == 'SUB2':
+    ET.SubElement(firm, 'VERSION').text = 'B0000000000'
+  else:
+    ET.SubElement(firm, 'VERSION').text = version
 
   requestInfo = ET.tostring(xml.getroot(), encoding = 'utf8')
 
