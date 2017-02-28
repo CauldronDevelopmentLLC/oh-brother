@@ -57,5 +57,7 @@ firmware has completed updating.
 # If it doesn't work for you
 YMMV.  Please feel free to submit a pull-request.
 
+Make sure you've set the admin password on the printer via the web interface.
+
 An alternate bash script for firmware download can be found
 [here](https://cbompart.wordpress.com/2014/05/26/brother-printer-firmware-part-2/).
