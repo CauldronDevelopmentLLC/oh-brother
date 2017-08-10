@@ -187,7 +187,10 @@ def update_firmware(cat, version):
   modelInfo.find('SPEC').text = spec
 
   firm = modelInfo.find('FIRMINFO/FIRM')
-  ET.SubElement(firm, 'ID').text = cat
+  if(cat == "IFAX"):
+    ET.SubElement(firm, 'ID').text = "MAIN"
+  else:
+    ET.SubElement(firm, 'ID').text = cat
   ET.SubElement(firm, 'VERSION').text = version
 
   requestInfo = ET.tostring(xml.getroot(), encoding = 'utf8')
