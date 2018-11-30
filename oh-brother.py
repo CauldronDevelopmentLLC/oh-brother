@@ -83,11 +83,11 @@ parser.add_argument('-p', '--password', help = "Printer admin password")
 args = parser.parse_args()
 
 # Provide information about requirements
-print 'Please ensure the following:'
-print '- SNMP service is enabled (for fetching model and versions)'
-print '- FTP service is enabled (for uploading firmware)'
-print '- an administrator password is set (for connecting to FTP)'
-raw_input("Press Ctrl-C to exit or Enter to continue...")
+print 'You may need to check the following in printer\'s configuration:'
+print '  - SNMP service is enabled (for fetching model and versions)'
+print '  - FTP service is enabled (for uploading firmware)'
+print '  - an administrator password is set (for connecting to FTP)'
+raw_input('Press Ctrl-C to exit or Enter to continue...')
 
 # Get SNMP data
 print 'Getting SNMP data from printer at %s...' % args.ip
