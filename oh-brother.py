@@ -83,7 +83,7 @@ parser.add_argument('-p', '--password', help = "Printer admin password")
 args = parser.parse_args()
 
 # Provide information about requirements
-print 'You may need to check the following in printer\'s configuration:'
+print 'You may need to check the following in the printer\'s configuration:'
 print '  - SNMP service is enabled (for fetching model and versions)'
 print '  - FTP service is enabled (for uploading firmware)'
 print '  - an administrator password is set (for connecting to FTP)'
