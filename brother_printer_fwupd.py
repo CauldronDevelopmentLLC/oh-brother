@@ -31,7 +31,7 @@ SNMP_RE = re.compile(r'(?P<name>[A-Z]+) ?= ?"(?P<value>.+)"')
 def parse_args():
     """Parse command line args."""
     parser = argparse.ArgumentParser(
-        prog=__name__,
+        prog=__file__,
         description=__doc__.strip().splitlines()[0],
     )
     parser.add_argument(
