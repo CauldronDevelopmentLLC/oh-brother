@@ -241,7 +241,7 @@ def update_firmware(cat, version):
 
 
   # Download firmware
-  f = open(filename, 'w')
+  f = open(filename, 'wb')
 
   print('Downloading firmware file %s from vendor server...' % filename)
   sys.stdout.flush()
@@ -283,7 +283,7 @@ def update_firmware(cat, version):
   sys.stdout.flush()
 
   ftp = FTP(args.ip, user = args.password) # Yes send password as user
-  ftp.storbinary('STOR ' + filename, open(filename, 'r'))
+  ftp.storbinary('STOR ' + filename, open(filename, 'rb'))
   ftp.quit()
 
   print('done')
