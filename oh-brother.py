@@ -21,6 +21,9 @@
 #   the new generic fwupd.org Linux service
 
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import input
 
 # Yes indeed, "SELIALNO"
 # (as used both in this here document and in script parts below)
@@ -88,7 +91,7 @@ print('You may need to check the following in the printer\'s configuration:')
 print('  - SNMP service is enabled (for fetching model and versions)')
 print('  - FTP service is enabled (for uploading firmware)')
 print('  - an administrator password is set (for connecting to FTP)')
-raw_input('Press Ctrl-C to exit or Enter to continue...')
+input('Press Ctrl-C to exit or Enter to continue...')
 
 # Get SNMP data
 print('Getting SNMP data from printer at %s...' % args.ip)
@@ -209,9 +212,9 @@ def update_firmware(cat, version):
   print('Looking up printer firmware info at vendor server...')
   sys.stdout.flush()
 
-  import urllib2
-  req = urllib2.Request(url, requestInfo, hdrs)
-  response = urllib2.urlopen(req)
+  import urllib.request, urllib.error, urllib.parse
+  req = urllib.request.Request(url, requestInfo, hdrs)
+  response = urllib.request.urlopen(req)
   response = response.read()
 
   print('done')
@@ -243,8 +246,8 @@ def update_firmware(cat, version):
   print('Downloading firmware file %s from vendor server...' % filename)
   sys.stdout.flush()
 
-  req = urllib2.Request(firmwareURL)
-  response = urllib2.urlopen(req)
+  req = urllib.request.Request(firmwareURL)
+  response = urllib.request.urlopen(req)
 
   while True:
       block = response.read(102400)
@@ -264,7 +267,7 @@ def update_firmware(cat, version):
   print('- firmware file version is compatible with your hardware')
   print('- network connection is reliable (prefer wired connection to WLAN)')
   print('- power is reliable')
-  raw_input("Press Ctrl-C to prevent upgrade or Enter to continue...")
+  input("Press Ctrl-C to prevent upgrade or Enter to continue...")
 
   # Get printer password
   if args.password is None:
@@ -287,7 +290,7 @@ def update_firmware(cat, version):
 
   print()
   print('Wait for printer to finish updating and reboot before continuing.')
-  raw_input("Press Enter to continue...")
+  input("Press Enter to continue...")
 
 
 for entry in firmInfo:
