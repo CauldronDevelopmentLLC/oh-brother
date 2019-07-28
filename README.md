@@ -22,8 +22,44 @@ sudo apt-get install -y python-pysnmp4
 
 ## On RedHat-based distributions (e.g. Fedora/CentOS)
 
+The [EPEL](https://fedoraproject.org/wiki/EPEL) repositories offer ``pysnmp``
+packages for RHEL/CentOS 6 and 7.
+
+Fedora does not appear to offer a package providing a Python 2 version of
+``pysnmp``, instead offering the ``python3-pysnmp`` package. The Python package
+installer ``pip`` may be used to install ``pysnmp``.
+
 ```
-sudo yum install python-pysnmp
+sudo pip install pysnmp
+```
+
+A virtual environment can be used instead to avoid system-wide changes.
+Creating a Python 2 virtual environment requires installation of the
+``virtualenv`` command via the ``python3-virtualenv`` package.
+
+```
+sudo dnf install python3-virtualenv
+```
+
+The virtual environment can be created, activated, and ``pysnmp`` installed in
+that environment as follows. This example below creates the environment in the
+directory ``venv-pysnmp``.
+
+```
+virtualenv --python /usr/bin/python2 venv_pysnmp
+source venv_pysnmp/bin/activate
+pip install pysnmp
+deactivate
+```
+
+The virtual environment must be active when running the ``oh-brother.py``
+script. The ``deactivate`` command can be used to return to the normal system
+Python environment.
+
+```
+source venv_pysnmp/bin/activate
+./oh-brother.py <ip address of printer>
+deactivate
 ```
 
 ## On OSX or Windows with Python installer (PIP)
