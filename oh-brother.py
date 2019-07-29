@@ -20,6 +20,10 @@
 #   hooked up to / integrated with
 #   the new generic fwupd.org Linux service
 
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import input
 
 # Yes indeed, "SELIALNO"
 # (as used both in this here document and in script parts below)
@@ -60,7 +64,7 @@ import sys
 
 def print_pretty(elem):
     s = ET.tostring(elem, 'utf-8')
-    print minidom.parseString(s).toprettyxml(indent = ' ')
+    print(minidom.parseString(s).toprettyxml(indent = ' '))
 
 usage = '%(prog)s [OPTIONS] <printer IP address>'
 description = 'A platform independent tool for updating Brother firmwares'
@@ -83,14 +87,14 @@ parser.add_argument('-p', '--password', help = "Printer admin password")
 args = parser.parse_args()
 
 # Provide information about requirements
-print 'You may need to check the following in the printer\'s configuration:'
-print '  - SNMP service is enabled (for fetching model and versions)'
-print '  - FTP service is enabled (for uploading firmware)'
-print '  - an administrator password is set (for connecting to FTP)'
-raw_input('Press Ctrl-C to exit or Enter to continue...')
+print('You may need to check the following in the printer\'s configuration:')
+print('  - SNMP service is enabled (for fetching model and versions)')
+print('  - FTP service is enabled (for uploading firmware)')
+print('  - an administrator password is set (for connecting to FTP)')
+input('Press Ctrl-C to exit or Enter to continue...')
 
 # Get SNMP data
-print 'Getting SNMP data from printer at %s...' % args.ip
+print('Getting SNMP data from printer at %s...' % args.ip)
 sys.stdout.flush()
 
 cg = cmdgen.CommandGenerator()
@@ -99,7 +103,7 @@ error, status, index, table = cg.nextCmd(
     cmdgen.UdpTransportTarget((args.ip, 161)),
     '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
 
-print 'done'
+print('done')
 
 if error: raise error
 if status:
@@ -114,7 +118,7 @@ spec = None
 firmId = None
 firmInfo = []
 
-if args.verbose: print table
+if args.verbose: print(table)
 
 for row in table:
     for name, value in row:
@@ -133,16 +137,16 @@ for row in table:
 
 
 # Print SNMP info
-print
-print '      serial =', serial
-print '       model =', model
-print '        spec =', spec
+print()
+print('      serial =', serial)
+print('       model =', model)
+print('        spec =', spec)
 
-print '   firmwares'
+print('   firmwares')
 for entry in firmInfo:
-    print '            category = %(cat)s, version = %(version)s' % entry
+    print('            category = %(cat)s, version = %(version)s' % entry)
 
-print
+print()
 
 
 # Override category and version
@@ -169,7 +173,7 @@ ssl.wrap_socket = sslwrap(ssl.wrap_socket)
 def update_firmware(cat, version):
   global args
 
-  print 'Updating %s version %s' % (cat, version)
+  print('Updating %s version %s' % (cat, version))
 
   # Build XML request info
   xml = ET.ElementTree(ET.fromstring(reqInfo))
@@ -198,24 +202,24 @@ def update_firmware(cat, version):
 
   requestInfo = ET.tostring(xml.getroot(), encoding = 'utf8')
 
-  if args.verbose: print 'request: %s' % requestInfo
+  if args.verbose: print('request: %s' % requestInfo)
 
   # Request firmware data
   url = 'https://firmverup.brother.co.jp/kne_bh7_update_nt_ssl/ifax2.asmx/' + \
       'fileUpdate'
   hdrs = {'Content-Type': 'text/xml'}
 
-  print 'Looking up printer firmware info at vendor server...'
+  print('Looking up printer firmware info at vendor server...')
   sys.stdout.flush()
 
-  import urllib2
-  req = urllib2.Request(url, requestInfo, hdrs)
-  response = urllib2.urlopen(req)
+  import urllib.request, urllib.error, urllib.parse
+  req = urllib.request.Request(url, requestInfo, hdrs)
+  response = urllib.request.urlopen(req)
   response = response.read()
 
-  print 'done'
+  print('done')
 
-  if args.verbose: print 'response: %s' % response
+  if args.verbose: print('response: %s' % response)
 
   # Parse response
   xml = ET.fromstring(response)
@@ -223,27 +227,27 @@ def update_firmware(cat, version):
   # Check version
   versionCheck = xml.find('FIRMUPDATEINFO/VERSIONCHECK')
   if versionCheck is not None and versionCheck.text == '1':
-    print 'Firmware already up to date'
+    print('Firmware already up to date')
     return
 
 
   # Get firmware URL
   firmwareURL = xml.find('FIRMUPDATEINFO/PATH')
   if firmwareURL is None:
-    print 'No firmware update info path found'
+    print('No firmware update info path found')
     sys.exit(1)
   firmwareURL = firmwareURL.text
   filename = firmwareURL.split('/')[-1]
 
 
   # Download firmware
-  f = open(filename, 'w')
+  f = open(filename, 'wb')
 
-  print 'Downloading firmware file %s from vendor server...' % filename
+  print('Downloading firmware file %s from vendor server...' % filename)
   sys.stdout.flush()
 
-  req = urllib2.Request(firmwareURL)
-  response = urllib2.urlopen(req)
+  req = urllib.request.Request(firmwareURL)
+  response = urllib.request.urlopen(req)
 
   while True:
       block = response.read(102400)
@@ -252,47 +256,47 @@ def update_firmware(cat, version):
       sys.stdout.write('.')
       sys.stdout.flush()
 
-  print 'done'
+  print('done')
   f.close()
 
   if args.test: return
 
-  print 'About to upload the firmware to printer.'
-  print 'This is a dangerous action since it is potentially destructive.'
-  print 'Thus please double-check / review to ensure that:'
-  print '- firmware file version is compatible with your hardware'
-  print '- network connection is reliable (prefer wired connection to WLAN)'
-  print '- power is reliable'
-  raw_input("Press Ctrl-C to prevent upgrade or Enter to continue...")
+  print('About to upload the firmware to printer.')
+  print('This is a dangerous action since it is potentially destructive.')
+  print('Thus please double-check / review to ensure that:')
+  print('- firmware file version is compatible with your hardware')
+  print('- network connection is reliable (prefer wired connection to WLAN)')
+  print('- power is reliable')
+  input("Press Ctrl-C to prevent upgrade or Enter to continue...")
 
   # Get printer password
   if args.password is None:
     import getpass
-    print
+    print()
     args.password = getpass.getpass('Enter printer admin password: ')
 
 
   # Upload firmware to printer
   from ftplib import FTP
 
-  print 'Now uploading firmware to printer (DO NOT REMOVE POWER!)...'
+  print('Now uploading firmware to printer (DO NOT REMOVE POWER!)...')
   sys.stdout.flush()
 
   ftp = FTP(args.ip, user = args.password) # Yes send password as user
-  ftp.storbinary('STOR ' + filename, open(filename, 'r'))
+  ftp.storbinary('STOR ' + filename, open(filename, 'rb'))
   ftp.quit()
 
-  print 'done'
+  print('done')
 
-  print
-  print 'Wait for printer to finish updating and reboot before continuing.'
-  raw_input("Press Enter to continue...")
+  print()
+  print('Wait for printer to finish updating and reboot before continuing.')
+  input("Press Enter to continue...")
 
 
 for entry in firmInfo:
-  print
+  print()
   update_firmware(entry['cat'], entry['version'])
 
 
-print
-print 'Success'
+print()
+print('Success')
