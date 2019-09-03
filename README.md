@@ -20,7 +20,7 @@ Python 2:
     sudo apt-get install -y python-pysnmp4
 
 Python 3:
-    sudo apt-get install -y python3-pysnmp4
+    sudo apt-get install -y python3-future python3-pysnmp4
 
 ## On RedHat-based distributions (e.g. Fedora/CentOS)
 
