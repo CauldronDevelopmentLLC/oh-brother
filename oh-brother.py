@@ -184,7 +184,7 @@ def update_firmware(cat, version):
   # (a "MAIN"-deviating "FIRM" in these cases!),
   # but rather a *fixed* "MAIN" value which is a completely unrelated item.
   #
-  # Acording to verCheck response, FIRMCATEGORY should be MAIN when FIRM/ID equals FIRM
+  # According to verCheck response, FIRMCATEGORY should be MAIN when FIRM/ID equals FIRM
   #  From response dump:
   #       <ID>FIRM</ID> <NAME>MAIN</NAME>
   #
