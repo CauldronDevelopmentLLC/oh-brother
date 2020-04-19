@@ -179,17 +179,17 @@ def update_firmware(cat, version):
   xml = ET.ElementTree(ET.fromstring(reqInfo))
 
   # At least for MFC-J4510DW M1405200717:EFAC (see Internet dumps)
-  # and MFC-J4625DW,
+  # and MFC-J4625DW, and MFC-J4420DW
   # this element's value is *not* equal to per-firmware cat[egory] value
   # (a "MAIN"-deviating "FIRM" in these cases!),
-  # but rather a *fixed* "MAIN" value which is a completely unrelated item,
-  # thus I assume this to model-unconditionally have been a BUG
-  # (which causes a failure response of the web service request).
-  #xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY').text = 'MAIN'
+  # but rather a *fixed* "MAIN" value which is a completely unrelated item.
   #
-  # Brother may have fixed this.
+  # According to verCheck response, FIRMCATEGORY should be MAIN when FIRM/ID equals FIRM
+  #  From response dump:
+  #       <ID>FIRM</ID> <NAME>MAIN</NAME>
+  #
 
-  xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY').text = cat
+  xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY').text = cat if cat != 'FIRM' else 'MAIN'
 
   modelInfo = xml.find('FIRMUPDATEINFO/MODELINFO')
   modelInfo.find('SELIALNO').text = serial
