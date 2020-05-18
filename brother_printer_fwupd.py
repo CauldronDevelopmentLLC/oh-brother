@@ -9,6 +9,11 @@ import socket
 import sys
 from collections import namedtuple
 
+try:
+    from gooey import Gooey
+except ImportError:
+    Gooey = None
+
 import requests
 from bs4 import BeautifulSoup
 from pysnmp.hlapi import (
@@ -28,6 +33,15 @@ PrinterInfo = namedtuple('PrinterInfo', ('model', 'serial', 'spec', 'fw_versions
 SNMP_RE = re.compile(r'(?P<name>[A-Z]+) ?= ?"(?P<value>.+)"')
 
 
+def gooey_if_exists(func):
+    """Make the app graphical, if gooey is installed."""
+    if Gooey:
+        return Gooey(func)
+    else:
+        return func
+
+
+@gooey_if_exists
 def parse_args():
     """Parse command line args."""
     parser = argparse.ArgumentParser(
