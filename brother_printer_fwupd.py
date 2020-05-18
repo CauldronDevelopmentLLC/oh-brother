@@ -83,11 +83,11 @@ def get_snmp_info(target: str, community: str = 'public') -> PrinterInfo:
 
         if error_indication:
             print('[!]', error_indication, file=sys.stderr)
-            exit(1)
+            sys.exit(1)
         elif error_status:
             position = var_binds[int(error_index) - 1][0] if error_index else '?'
             print(f'[!] {error_status.prettyPrint()} at {position}', file=sys.stderr)
-            exit(1)
+            sys.exit(1)
         else:
             # TODO this is ugly
             var_bind = var_binds[0]
@@ -97,7 +97,7 @@ def get_snmp_info(target: str, community: str = 'public') -> PrinterInfo:
             match = SNMP_RE.match(data)
             if not match:
                 print(f'[!] Data "{data}" does not match the regex.', file=sys.stderr)
-                exit(1)
+                sys.exit(1)
             name = match.group('name')
             value = match.group('value')
             if name == 'MODEL':
@@ -170,7 +170,7 @@ def get_download_url(printer_info: PrinterInfo) -> str:
         print('[!] Maybe the firmware is already up to date or there is a bug.', file=sys.stderr)
         print('[!] This is the response of brothers update API:', file=sys.stderr)
         print(resp.text)
-        exit(1)
+        sys.exit(1)
 
 
 def download_fw(url: str, dst: str = 'firmware.djf'):

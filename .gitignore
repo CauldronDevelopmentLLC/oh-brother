@@ -1,2 +1,3 @@
 *.djf
 .venv
+*.egg-info/
