@@ -77,6 +77,8 @@ parser.add_argument('-v', '--verbose', action = 'store_true',
                     help = 'Verbose output')
 parser.add_argument('-c', '--category',
                     help = 'Force a specific firmware category')
+parser.add_argument('-C', '--community', default = 'public',
+                    help = 'SNMP community')
 parser.add_argument('-f', '--version', default = 'B0000000000',
                     help = 'Force a specific firmware version, must be used '
                     'with --category')
@@ -99,7 +101,7 @@ sys.stdout.flush()
 
 cg = cmdgen.CommandGenerator()
 error, status, index, table = cg.nextCmd(
-    cmdgen.CommunityData('public'),
+    cmdgen.CommunityData(args.community),
     cmdgen.UdpTransportTarget((args.ip, 161)),
     '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
 
