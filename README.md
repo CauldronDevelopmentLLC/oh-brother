@@ -39,9 +39,8 @@ To make it a bit easier, I wrote this simple script.
 ## Usage
 
 1. Clone the repo
-2. `pipenv sync`
-3. `pipenv shell`
-4. `./brother_printer_fwupd.py <IP of your printer>`
+2. `poetry install`
+3. `poetry run ./brother_printer_fwupd.py <IP of your printer>`
 
 Use at your own risk!™
 
@@ -49,4 +48,4 @@ Contributions welcome.
 
 ## License
 
-[© 2019 sedrubal (GPLv3)](./LICENSE)
+[© 2020 sedrubal (GPLv3)](./LICENSE)
