@@ -189,15 +189,19 @@ def get_download_url(printer_info: PrinterInfo) -> str:
         FW_UPDATE_URL, data=api_data, headers={"Content-Type": "text/xml"}
     )
     resp.raise_for_status()
-    try:
-        resp_xml = BeautifulSoup(resp.text, "xml")
-        return resp_xml.find('PATH').text
-    except:
-        print('[!] Did not receive any url.', file=sys.stderr)
-        print('[!] Maybe the firmware is already up to date or there is a bug.', file=sys.stderr)
-        print('[!] This is the response of brothers update API:', file=sys.stderr)
+    resp_xml = BeautifulSoup(resp.text, "xml")
+    path = resp_xml.find("PATH")
+    if not path:
+        print("[!] Did not receive any url.", file=sys.stderr)
+        print(
+            "[!] Maybe the firmware is already up to date or there is a bug.",
+            file=sys.stderr,
+        )
+        print("[!] This is the response of brothers update API:", file=sys.stderr)
         print(resp.text)
         sys.exit(1)
+
+    return path.text
 
 
 def download_fw(url: str, dst: str = "firmware.djf"):
