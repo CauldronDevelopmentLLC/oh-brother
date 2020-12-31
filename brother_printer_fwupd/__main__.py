@@ -25,9 +25,9 @@ def parse_args():
         description=__doc__.strip().splitlines()[0],
     )
     parser.add_argument(
-        "-h",
-        "--host",
-        metavar="printer",
+        "-p",
+        "--printer",
+        metavar="host",
         default=None,
         help="IP Address or hostname of the printer (default: autodiscover via mdns).",
     )

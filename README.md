@@ -39,6 +39,14 @@ To make it a bit easier, I wrote this simple script.
 
 ## Usage
 
+### A: Install package using pip:
+
+```shell
+pip install --user --upgrade brother-printer-fwupd
+```
+
+### B: Development installation:
+
 1. Clone the repo
 2. `poetry install`
 3. `poetry run brother_printer_fwupd.py`
