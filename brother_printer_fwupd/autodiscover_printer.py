@@ -56,16 +56,24 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
 
             if product:
                 product = product.decode("utf8")
+
             note = service_info.properties.get(b"note", None)
 
             if note:
                 note = note.decode("utf8")
+
+            uuid = service_info.properties.get(b"UUID", None)
+
+            if uuid:
+                uuid = uuid.decode("utf8")
+
             yield MDNSPrinterInfo(
                 ip_addr=ip_addr,
                 name=name,
                 port=service_info.port,
                 product=product,
                 note=note,
+                uuid=uuid,
             )
 
     def _remove_printer_infos_by_name(self, name: str):
@@ -136,8 +144,13 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
                     if info.note
                     else ""
                 )
+                uuid_str = (
+                    termcolor.colored(f"- UUID: {info.uuid}", attrs=["italic"])
+                    if info.uuid
+                    else ""
+                )
                 print(
-                    f"{num_str} {ip_addr_str} {port_str} {name_str} {product_str} {note_str}"
+                    f"{num_str} {ip_addr_str} {port_str} {name_str} {product_str} {note_str} {uuid_str}"
                 )
 
             print()

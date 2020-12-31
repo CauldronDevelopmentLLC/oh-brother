@@ -54,32 +54,46 @@ def main():
     printer_ip: typing.Optional["IPAddress"] = args.printer
     upload_port: typing.Optional[int] = None
 
-    if printer_ip:
+    if not printer_ip:
         print_info("Querying printer info via SNMP.")
         discoverer = PrinterDiscoverer()
         mdns_printer_info = discoverer.run_cli()
-        printer_ip = mdns_printer_info.ip_addr
-        upload_port = mdns_printer_info.port
+
+        if mdns_printer_info:
+            printer_ip = mdns_printer_info.ip_addr
+            upload_port = mdns_printer_info.port
 
     if not printer_ip:
         print_error("No printer given or found.")
         sys.exit(1)
 
     print_info("Querying printer info via SNMP.")
-    printer_info = get_snmp_info(target=args.printer, community=args.community)
+    printer_info = get_snmp_info(target=printer_ip, community=args.community)
     versions_str = ", ".join(
-        f"{firmid} @ {firmver}" for firmid, firmver in printer_info.fw_versions
+        f"{fw_info.firmid} @ {fw_info.firmver}" for fw_info in printer_info.fw_versions
     )
     print_info(
         f" Detected {printer_info.model} with following firmware version(s): {versions_str}"
     )
     print_info("Querying firmware download URL from brother update API.")
-    download_url = get_download_url(printer_info)
-    print_debug(f"  Download URL is {download_url}")
-    print_success("Downloading firmware file.")
-    download_fw(url=download_url, dst=args.fw_file)
-    print_info("Uploading firmware file to printer via jetdirect.")
-    upload_fw(target=printer_ip, port=upload_port, file_name=args.fw_file)
+    download_url: typing.Optional[str] = None
+
+    for fw_part in printer_info.fw_versions:
+        download_url = get_download_url(
+            printer_info=printer_info,
+            firmid=str(fw_part.firmid),
+        )
+
+        if not download_url:
+            continue
+
+        print_debug(f"  Download URL is {download_url}")
+        print_success("Downloading firmware file.")
+        download_fw(url=download_url, dst=args.fw_file)
+        print_info("Uploading firmware file to printer via jetdirect.")
+        upload_fw(target=printer_ip, port=upload_port, file_name=args.fw_file)
+        input("Continue? ")
+
     print_success("Done.")
 
 

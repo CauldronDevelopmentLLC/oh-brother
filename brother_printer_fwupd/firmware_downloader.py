@@ -1,11 +1,10 @@
 """Logic to download the correct firmware from the official Brother server."""
-import sys
 import typing
 
 import requests
 from bs4 import BeautifulSoup
 
-from .utils import print_error
+from .utils import print_error, print_info, print_success
 
 if typing.TYPE_CHECKING:
     from .models import SNMPPrinterInfo
@@ -15,21 +14,23 @@ FW_UPDATE_URL = (
 )
 
 
-def get_download_url(printer_info: "SNMPPrinterInfo") -> str:
+def get_download_url(
+    printer_info: "SNMPPrinterInfo", firmid: str = "MAIN"
+) -> typing.Optional[str]:
     """Get the firmware download URL for the target printer. """
     firm_info = ""
 
-    for fw_id, fw_version in printer_info.fw_versions:
+    for fw_info in printer_info.fw_versions:
         firm_info += f"""
         <FIRM>
-            <ID>{fw_id}</ID>
-            <VERSION>{fw_version}</VERSION>
+            <ID>{fw_info.firmid}</ID>
+            <VERSION>{fw_info.firmver}</VERSION>
         </FIRM>
         """
     api_data = f"""
 <REQUESTINFO>
     <FIRMUPDATETOOLINFO>
-        <FIRMCATEGORY>MAIN</FIRMCATEGORY>
+        <FIRMCATEGORY>{firmid}</FIRMCATEGORY>
         <OS>LINUX</OS>
         <INSPECTMODE>1</INSPECTMODE>
     </FIRMUPDATETOOLINFO>
@@ -57,13 +58,28 @@ def get_download_url(printer_info: "SNMPPrinterInfo") -> str:
     )
     resp.raise_for_status()
     resp_xml = BeautifulSoup(resp.text, "xml")
+    versioncheck = resp_xml.select("VERSIONCHECK")
+    if len(versioncheck) == 1:
+        versioncheck_val = versioncheck[0].text
+        if versioncheck_val == "0":
+            print_info(f"It seems that a firmware update is required for {firmid}")
+        elif versioncheck_val == "1":
+            print_success(f"Firmware part {firmid} seems to be up to date.")
+            return None
+        else:
+            print_error(f"Unknown versioncheck response for {firmid=}.")
+            print_error("There seems to be a bug. Open an issue!")
+            print_error("This is the response of brothers update API:")
+            print_error(resp.text)
+            return None
+
     path = resp_xml.find("PATH")
     if not path:
-        print_error("Did not receive any url.")
-        print_error("Maybe the firmware is already up to date or there is a bug.")
+        print_error("Did not receive download url for {firmid}.")
+        print_error("Either this firmware part is up to date or there is a bug.")
         print_error("This is the response of brothers update API:")
         print_error(resp.text)
-        sys.exit(1)
+        return None
 
     return path.text
 

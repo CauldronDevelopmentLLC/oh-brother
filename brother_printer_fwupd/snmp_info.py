@@ -15,7 +15,7 @@ from pysnmp.hlapi import (
     nextCmd,
 )
 
-from .models import SNMPPrinterInfo, IPAddress
+from .models import FWInfo, IPAddress, SNMPPrinterInfo
 from .utils import print_error
 
 SNMP_OID = "iso.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2"
@@ -39,9 +39,8 @@ def get_snmp_info(
         - a list of firmware infos, which are tuples of the id and their version.
         (Whatever this information means).
     """
-    firmid = None
-    firmver = None
     printer_info = SNMPPrinterInfo()
+    fw_info = FWInfo()
 
     if isinstance(target, str):
         target = ipaddress.ip_address(target)
@@ -89,16 +88,16 @@ def get_snmp_info(
                 printer_info.serial = value
             elif name == "SPEC":
                 printer_info.spec = value
-            elif name == "FIRMID":
-                firmid = value
-            elif name == "FIRMVER":
-                firmver = value
+            elif name in ("FIRMID", "FIRMVER"):
+                setattr(fw_info, name.lower(), value)
 
-    if firmid is not None and firmver is not None:
-        printer_info.fw_versions.append((firmid, firmver))
-    else:
+                if fw_info.is_complete:
+                    printer_info.fw_versions.append(fw_info)
+                    fw_info = FWInfo()
+
+    if not fw_info.is_empty:
         print_error(
-            f"Did not receive firmid or firmver from printer via SNMP: {firmid=}, {firmver=}"
+            f"Did not receive firmid or firmver from printer via SNMP: {fw_info=}"
         )
         sys.exit(1)
 

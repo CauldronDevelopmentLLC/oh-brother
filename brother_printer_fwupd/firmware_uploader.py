@@ -4,7 +4,7 @@ import typing
 
 from .models import IPAddress
 
-PORT_SERVICE_NAME = "pdf-datastream"
+PORT_SERVICE_NAME = "pdl-datastream"
 
 
 def upload_fw(
