@@ -26,10 +26,11 @@ To make it a bit easier, I wrote this simple script.
 
 ## What the script does:
 
-1. Get printer info (like model name, firmware versions, etc.) with SNMP
-2. Query the firmware download URL from brother API server
-3. Download the firmware
-4. Upload the firmware to the printer over port 9100 (jetdirect)
+1. Optional if no IP is given: Discover the printer using MDNS
+2. Get printer info (like model name, firmware versions, etc.) with SNMP
+3. Query the firmware download URL from Brother API server
+4. Download the firmware
+5. Upload the firmware to the printer over port 9100 (PDL-Datastream / jetdirect)
 
 ## Tested with:
 
@@ -40,7 +41,7 @@ To make it a bit easier, I wrote this simple script.
 
 1. Clone the repo
 2. `poetry install`
-3. `poetry run ./brother_printer_fwupd.py <IP of your printer>`
+3. `poetry run brother_printer_fwupd.py`
 
 Use at your own risk!™
 
