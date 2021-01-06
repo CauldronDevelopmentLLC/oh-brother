@@ -124,17 +124,17 @@ if args.verbose: print(table)
 
 for row in table:
     for name, value in row:
-        value = value.prettyPrint()
+        value = str(value)
 
         if value.find('=') != -1:
             name, value = value.split('=')
-            value = value.strip('" ')
+            value = value.strip(" \"\r\n")
 
             if name == 'MODEL': model = value
             if name == 'SERIAL': serial = value
             if name == 'SPEC': spec = value
             if name == 'FIRMID': firmId = value
-            if name == 'FIRMVER':
+            if name == 'FIRMVER' and firmId != "" and value != "":
                 firmInfo.append({'cat': firmId, 'version': value})
 
 
