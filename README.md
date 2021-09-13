@@ -26,7 +26,7 @@ To make it a bit easier, I wrote this simple script.
 
 ## What the script does:
 
-1. Optional if no IP is given: Discover the printer using MDNS
+1. Optional (if no IP is given): Discover the printer using MDNS
 2. Get printer info (like model name, firmware versions, etc.) with SNMP
 3. Query the firmware download URL from Brother API server
 4. Download the firmware
@@ -36,6 +36,7 @@ To make it a bit easier, I wrote this simple script.
 
 - MFC-9332CDW
 - MFC-9142CDN
+- DCP-9022CDW
 
 ## Usage
 
@@ -58,4 +59,4 @@ Contributions welcome.
 
 ## License
 
-[© 2020 sedrubal (GPLv3)](./LICENSE)
+[© 2021 sedrubal (GPLv3)](./LICENSE)
