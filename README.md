@@ -47,6 +47,8 @@ To make it a bit easier, I wrote this simple script.
 pip install --user --upgrade brother-printer-fwupd
 ```
 
+*If this does not work, try `pip install --user --upgrade brother_printer_fwupd`.*
+
 ### B: Development installation:
 
 1. Clone the repo
