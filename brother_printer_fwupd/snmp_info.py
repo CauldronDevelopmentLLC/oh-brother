@@ -20,7 +20,7 @@ from .utils import print_error
 
 SNMP_OID = "iso.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2"
 
-SNMP_RE = re.compile(r'(?P<name>[A-Z]+) ?= ?"(?P<value>.+)"')
+SNMP_RE = re.compile(r'(?P<name>[A-Z]+) ?= ?"(?P<value>.*)"')
 UDP_SNMP_PORT = 161
 
 
@@ -89,11 +89,12 @@ def get_snmp_info(
             elif name == "SPEC":
                 printer_info.spec = value
             elif name in ("FIRMID", "FIRMVER"):
-                setattr(fw_info, name.lower(), value)
+                if value:
+                    setattr(fw_info, name.lower(), value)
 
-                if fw_info.is_complete:
-                    printer_info.fw_versions.append(fw_info)
-                    fw_info = FWInfo()
+                    if fw_info.is_complete:
+                        printer_info.fw_versions.append(fw_info)
+                        fw_info = FWInfo()
 
     if not fw_info.is_empty:
         print_error(
