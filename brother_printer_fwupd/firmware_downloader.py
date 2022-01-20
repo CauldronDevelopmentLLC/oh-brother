@@ -69,7 +69,7 @@ def get_download_url(
         else:
             print_error(f"Unknown versioncheck response for {firmid=}.")
             print_error("There seems to be a bug. Open an issue!")
-            print_error("This is the response of brothers update API:")
+            print_error("This is the response of Brother's update API:")
             print_error(resp.text)
             return None
 
@@ -77,7 +77,7 @@ def get_download_url(
     if not path:
         print_error("Did not receive download url for {firmid}.")
         print_error("Either this firmware part is up to date or there is a bug.")
-        print_error("This is the response of brothers update API:")
+        print_error("This is the response of Brother's update API:")
         print_error(resp.text)
         return None
 

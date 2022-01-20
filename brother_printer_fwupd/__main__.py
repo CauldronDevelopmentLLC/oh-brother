@@ -75,7 +75,7 @@ def main():
     print_info(
         f" Detected {printer_info.model} with following firmware version(s): {versions_str}"
     )
-    print_info("Querying firmware download URL from brother update API.")
+    print_info("Querying firmware download URL from Brother update API.")
     download_url: typing.Optional[str] = None
 
     for fw_part in printer_info.fw_versions:
