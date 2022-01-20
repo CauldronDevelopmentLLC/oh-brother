@@ -75,7 +75,7 @@ def get_download_url(
 
     path = resp_xml.find("PATH")
     if not path:
-        print_error("Did not receive download url for {firmid}.")
+        print_error(f"Did not receive download url for {firmid}.")
         print_error("Either this firmware part is up to date or there is a bug.")
         print_error("This is the response of Brother's update API:")
         print_error(resp.text)
