@@ -7,7 +7,11 @@ import argparse
 import sys
 import typing
 
-from .autodiscover_printer import PrinterDiscoverer
+try:
+    from .autodiscover_printer import PrinterDiscoverer
+except ImportError:
+    PrinterDiscoverer = None
+
 from .firmware_downloader import download_fw, get_download_url
 from .firmware_uploader import upload_fw
 from .snmp_info import get_snmp_info
@@ -24,12 +28,19 @@ def parse_args():
         prog=__file__,
         description=__doc__.strip().splitlines()[0],
     )
+    if PrinterDiscoverer is None:
+        discovery_available = False
+        blurb = "required, because zeroconf is not available"
+    else:
+        discovery_available = True
+        blurb = "default: autodiscover via mdns"
     parser.add_argument(
         "-p",
         "--printer",
+        required=not discovery_available,
         metavar="host",
         default=None,
-        help="IP Address or hostname of the printer (default: autodiscover via mdns).",
+        help=f"IP Address or hostname of the printer ({blurb}).",
     )
     parser.add_argument(
         "--community",
