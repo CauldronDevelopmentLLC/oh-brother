@@ -35,13 +35,19 @@ def parse_args():
         "--community",
         "-c",
         default="public",
-        help="SNMP Community string for the printer (default: 'public').",
+        help="SNMP Community string for the printer (default: '%(default)s').",
     )
     parser.add_argument(
         "--fw-file",
         "-f",
         default="firmware.djf",
-        help="File name for the downloaded firmware (default: 'firmware.djf').",
+        help="File name for the downloaded firmware (default: '%(default)s').",
+    )
+    parser.add_argument(
+        "--os",
+        type=str.upper,
+        choices=["WINDOWS", "MAC", "LINUX"],
+        help="Operating system to report when downloading firmware (default: autodetect)",
     )
 
     return parser.parse_args()
@@ -82,6 +88,7 @@ def main():
         download_url = get_download_url(
             printer_info=printer_info,
             firmid=str(fw_part.firmid),
+            reported_os=args.os,
         )
 
         if not download_url:

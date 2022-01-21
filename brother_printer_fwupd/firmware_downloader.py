@@ -1,4 +1,5 @@
 """Logic to download the correct firmware from the official Brother server."""
+import sys
 import typing
 
 import requests
@@ -15,7 +16,8 @@ FW_UPDATE_URL = (
 
 
 def get_download_url(
-    printer_info: "SNMPPrinterInfo", firmid: str = "MAIN"
+    printer_info: "SNMPPrinterInfo", firmid: str = "MAIN",
+    reported_os: typing.Optional[str] = None
 ) -> typing.Optional[str]:
     """Get the firmware download URL for the target printer. """
     firm_info = ""
@@ -27,11 +29,20 @@ def get_download_url(
             <VERSION>{fw_info.firmver}</VERSION>
         </FIRM>
         """
+
+    if reported_os is None:
+        if sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
+            reported_os = "WINDOWS"
+        elif sys.platform.startswith("darwin"):
+            reported_os = "MAC"
+        else:
+            reported_os = "LINUX"
+
     api_data = f"""
 <REQUESTINFO>
     <FIRMUPDATETOOLINFO>
         <FIRMCATEGORY>{firmid}</FIRMCATEGORY>
-        <OS>LINUX</OS>
+        <OS>{reported_os}</OS>
         <INSPECTMODE>1</INSPECTMODE>
     </FIRMUPDATETOOLINFO>
 
