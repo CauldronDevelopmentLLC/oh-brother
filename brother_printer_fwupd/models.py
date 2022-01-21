@@ -10,6 +10,7 @@ IPAddress = typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 @dataclass
 class FWInfo:
     """Firmware fragment info."""
+
     firmid: typing.Optional[str] = field(default=None)
     firmver: typing.Optional[str] = field(default=None)
 

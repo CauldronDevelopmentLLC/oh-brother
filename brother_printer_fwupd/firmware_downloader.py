@@ -16,10 +16,11 @@ FW_UPDATE_URL = (
 
 
 def get_download_url(
-    printer_info: "SNMPPrinterInfo", firmid: str = "MAIN",
-    reported_os: typing.Optional[str] = None
+    printer_info: "SNMPPrinterInfo",
+    firmid: str = "MAIN",
+    reported_os: typing.Optional[str] = None,
 ) -> typing.Optional[str]:
-    """Get the firmware download URL for the target printer. """
+    """Get the firmware download URL for the target printer."""
     firm_info = ""
 
     for fw_info in printer_info.fw_versions:

@@ -7,8 +7,8 @@ import ipaddress
 import typing
 
 import termcolor
-import zeroconf
 
+import zeroconf
 from .models import MDNSPrinterInfo
 from .utils import clear_screen, print_debug, print_error
 
