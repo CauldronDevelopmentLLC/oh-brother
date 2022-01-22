@@ -38,6 +38,7 @@ To make it a bit easier, I wrote this simple script.
 - MFC-9142CDN
 - DCP-9020CDW
 - DCP-9022CDW
+- HL-5370DW
 
 ## Usage
 
