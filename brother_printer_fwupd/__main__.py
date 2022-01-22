@@ -7,7 +7,11 @@ import argparse
 import sys
 import typing
 
-from .autodiscover_printer import PrinterDiscoverer
+try:
+    from .autodiscover_printer import PrinterDiscoverer
+except ImportError:
+    PrinterDiscoverer = None
+
 from .firmware_downloader import download_fw, get_download_url
 from .firmware_uploader import upload_fw
 from .snmp_info import get_snmp_info
@@ -24,24 +28,37 @@ def parse_args():
         prog=__file__,
         description=__doc__.strip().splitlines()[0],
     )
+    if PrinterDiscoverer is None:
+        discovery_available = False
+        blurb = "required, because zeroconf is not available"
+    else:
+        discovery_available = True
+        blurb = "default: autodiscover via mdns"
     parser.add_argument(
         "-p",
         "--printer",
+        required=not discovery_available,
         metavar="host",
         default=None,
-        help="IP Address or hostname of the printer (default: autodiscover via mdns).",
+        help=f"IP Address or hostname of the printer ({blurb}).",
     )
     parser.add_argument(
         "--community",
         "-c",
         default="public",
-        help="SNMP Community string for the printer (default: 'public').",
+        help="SNMP Community string for the printer (default: '%(default)s').",
     )
     parser.add_argument(
         "--fw-file",
         "-f",
         default="firmware.djf",
-        help="File name for the downloaded firmware (default: 'firmware.djf').",
+        help="File name for the downloaded firmware (default: '%(default)s').",
+    )
+    parser.add_argument(
+        "--os",
+        type=str.upper,
+        choices=["WINDOWS", "MAC", "LINUX"],
+        help="Operating system to report when downloading firmware (default: autodetect)",
     )
 
     return parser.parse_args()
@@ -75,13 +92,14 @@ def main():
     print_info(
         f" Detected {printer_info.model} with following firmware version(s): {versions_str}"
     )
-    print_info("Querying firmware download URL from brother update API.")
+    print_info("Querying firmware download URL from Brother update API.")
     download_url: typing.Optional[str] = None
 
     for fw_part in printer_info.fw_versions:
         download_url = get_download_url(
             printer_info=printer_info,
             firmid=str(fw_part.firmid),
+            reported_os=args.os,
         )
 
         if not download_url:

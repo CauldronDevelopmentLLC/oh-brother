@@ -1,4 +1,5 @@
 """Logic to download the correct firmware from the official Brother server."""
+import sys
 import typing
 
 import requests
@@ -15,9 +16,11 @@ FW_UPDATE_URL = (
 
 
 def get_download_url(
-    printer_info: "SNMPPrinterInfo", firmid: str = "MAIN"
+    printer_info: "SNMPPrinterInfo",
+    firmid: str = "MAIN",
+    reported_os: typing.Optional[str] = None,
 ) -> typing.Optional[str]:
-    """Get the firmware download URL for the target printer. """
+    """Get the firmware download URL for the target printer."""
     firm_info = ""
 
     for fw_info in printer_info.fw_versions:
@@ -27,11 +30,20 @@ def get_download_url(
             <VERSION>{fw_info.firmver}</VERSION>
         </FIRM>
         """
+
+    if reported_os is None:
+        if sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
+            reported_os = "WINDOWS"
+        elif sys.platform.startswith("darwin"):
+            reported_os = "MAC"
+        else:
+            reported_os = "LINUX"
+
     api_data = f"""
 <REQUESTINFO>
     <FIRMUPDATETOOLINFO>
         <FIRMCATEGORY>{firmid}</FIRMCATEGORY>
-        <OS>LINUX</OS>
+        <OS>{reported_os}</OS>
         <INSPECTMODE>1</INSPECTMODE>
     </FIRMUPDATETOOLINFO>
 
@@ -69,15 +81,15 @@ def get_download_url(
         else:
             print_error(f"Unknown versioncheck response for {firmid=}.")
             print_error("There seems to be a bug. Open an issue!")
-            print_error("This is the response of brothers update API:")
+            print_error("This is the response of Brother's update API:")
             print_error(resp.text)
             return None
 
     path = resp_xml.find("PATH")
     if not path:
-        print_error("Did not receive download url for {firmid}.")
+        print_error(f"Did not receive download url for {firmid}.")
         print_error("Either this firmware part is up to date or there is a bug.")
-        print_error("This is the response of brothers update API:")
+        print_error("This is the response of Brother's update API:")
         print_error(resp.text)
         return None
 
