@@ -72,7 +72,7 @@ def main():
     upload_port: typing.Optional[int] = None
 
     if not printer_ip:
-        print_info("Querying printer info via SNMP.")
+        print_info("Discovering printer via MDNS.")
         discoverer = PrinterDiscoverer()
         mdns_printer_info = discoverer.run_cli()
 
