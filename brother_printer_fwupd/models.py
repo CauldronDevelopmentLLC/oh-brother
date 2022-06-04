@@ -2,6 +2,7 @@
 import typing
 import ipaddress
 from dataclasses import dataclass, field
+import argparse
 
 
 IPAddress = typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
@@ -23,6 +24,20 @@ class FWInfo:
     def is_empty(self):
         """Return True if firmid and firmver are None."""
         return self.firmid is None and self.firmver is None
+
+    def __str__(self):
+        return f"{self.firmid}@{self.firmver}"
+
+    @classmethod
+    def from_str(cls, value: str):
+        """Parse FW info from string from command line argument."""
+        try:
+            firmid, firmver = value.split("@", 1)
+        except ValueError as err:
+            raise argparse.ArgumentTypeError(
+                f"Invalid firmware ID {value}. Format: firmid@firmver"
+            ) from err
+        return cls(firmid, firmver)
 
 
 @dataclass

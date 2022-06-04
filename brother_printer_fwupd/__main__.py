@@ -6,16 +6,19 @@ Script to update the firmware of some Brother printers (e. g. MFC).
 import argparse
 import sys
 import typing
+import logging
 
+PrinterDiscoverer: typing.Optional[typing.Type] = None
 try:
     from .autodiscover_printer import PrinterDiscoverer
 except ImportError:
-    PrinterDiscoverer = None
+    pass
 
 from .firmware_downloader import download_fw, get_download_url
 from .firmware_uploader import upload_fw
 from .snmp_info import get_snmp_info
-from .utils import gooey_if_exists, print_debug, print_error, print_info, print_success
+from .utils import gooey_if_exists, LOGGER
+from .models import FWInfo, SNMPPrinterInfo
 
 if typing.TYPE_CHECKING:
     from .models import IPAddress
@@ -60,6 +63,35 @@ def parse_args():
         choices=["WINDOWS", "MAC", "LINUX"],
         help="Operating system to report when downloading firmware (default: autodetect)",
     )
+    parser.add_argument(
+        "--model",
+        type=str,
+        help="Skip SNMP scanning by directly specifying the printer model.",
+    )
+    parser.add_argument(
+        "--serial",
+        type=str,
+        help="Skip SNMP scanning by directly specifying the printer serial.",
+    )
+    parser.add_argument(
+        "--spec",
+        type=str,
+        help="Skip SNMP scanning by directly specifying the printer spec.",
+    )
+    parser.add_argument(
+        "--fw",
+        "--fw-versions",
+        dest="fw_versions",
+        nargs="*",
+        default=list[FWInfo](),
+        type=FWInfo.from_str,
+        help="Skip SNMP scanning by directly specifying the firmware parts to update.",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print debug messages",
+    )
 
     return parser.parse_args()
 
@@ -68,11 +100,13 @@ def main():
     """Do a firmware upgrade."""
     args = parse_args()
 
+    LOGGER.setLevel(logging.DEBUG if args.debug else logging.INFO)
+
     printer_ip: typing.Optional["IPAddress"] = args.printer
     upload_port: typing.Optional[int] = None
 
     if not printer_ip:
-        print_info("Discovering printer via MDNS.")
+        LOGGER.info("Discovering printer via MDNS.")
         discoverer = PrinterDiscoverer()
         mdns_printer_info = discoverer.run_cli()
 
@@ -81,18 +115,30 @@ def main():
             upload_port = mdns_printer_info.port
 
     if not printer_ip:
-        print_error("No printer given or found.")
+        LOGGER.critical("No printer given or found.")
         sys.exit(1)
 
-    print_info("Querying printer info via SNMP.")
-    printer_info = get_snmp_info(target=printer_ip, community=args.community)
-    versions_str = ", ".join(
-        f"{fw_info.firmid} @ {fw_info.firmver}" for fw_info in printer_info.fw_versions
+    if args.model and args.serial and args.spec and args.fw_versions:
+        printer_info = SNMPPrinterInfo(
+            model=args.model,
+            serial=args.serial,
+            spec=args.spec,
+            fw_versions=args.fw_versions,
+        )
+        snmp_used = False
+    else:
+        LOGGER.info("Querying printer info via SNMP.")
+        printer_info = get_snmp_info(target=printer_ip, community=args.community)
+        snmp_used = True
+
+    versions_str = ", ".join(str(fw_info) for fw_info in printer_info.fw_versions)
+    LOGGER.success(
+        "%s %s with following firmware version(s): %s",
+        "Detected" if snmp_used else "Using",
+        printer_info.model,
+        versions_str,
     )
-    print_info(
-        f" Detected {printer_info.model} with following firmware version(s): {versions_str}"
-    )
-    print_info("Querying firmware download URL from Brother update API.")
+    LOGGER.info("Querying firmware download URL from Brother update API.")
     download_url: typing.Optional[str] = None
 
     for fw_part in printer_info.fw_versions:
@@ -105,14 +151,14 @@ def main():
         if not download_url:
             continue
 
-        print_debug(f"  Download URL is {download_url}")
-        print_success("Downloading firmware file.")
+        LOGGER.debug("  Download URL is %s", download_url)
+        LOGGER.success("Downloading firmware file.")
         download_fw(url=download_url, dst=args.fw_file)
-        print_info("Uploading firmware file to printer via jetdirect.")
+        LOGGER.info("Uploading firmware file to printer via jetdirect.")
         upload_fw(target=printer_ip, port=upload_port, file_name=args.fw_file)
         input("Continue? ")
 
-    print_success("Done.")
+    LOGGER.success("Done.")
 
 
 if __name__ == "__main__":

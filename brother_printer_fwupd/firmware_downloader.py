@@ -1,11 +1,13 @@
 """Logic to download the correct firmware from the official Brother server."""
 import sys
 import typing
+import logging
 
 import requests
 from bs4 import BeautifulSoup
 
-from .utils import print_error, print_info, print_success
+from . import ISSUE_URL
+from .utils import LOGGER
 
 if typing.TYPE_CHECKING:
     from .models import SNMPPrinterInfo
@@ -65,32 +67,41 @@ def get_download_url(
 </REQUESTINFO>
 """
     # curl -X POST -d @hl3040cn-update.xml -H "Content-Type:text/xml"
+    LOGGER.debug(
+        "Sending POST request to %s with following content:\n%s",
+        FW_UPDATE_URL,
+        api_data,
+    )
     resp = requests.post(
         FW_UPDATE_URL, data=api_data, headers={"Content-Type": "text/xml"}
     )
     resp.raise_for_status()
+    LOGGER.debug("Response:\n%s", resp.text)
+
     resp_xml = BeautifulSoup(resp.text, "xml")
     versioncheck = resp_xml.select("VERSIONCHECK")
     if len(versioncheck) == 1:
         versioncheck_val = versioncheck[0].text
         if versioncheck_val == "0":
-            print_info(f"It seems that a firmware update is required for {firmid}")
+            LOGGER.info("It seems that a firmware update is required for %s", firmid)
         elif versioncheck_val == "1":
-            print_success(f"Firmware part {firmid} seems to be up to date.")
+            LOGGER.success("Firmware part %s seems to be up to date.", firmid)
             return None
         else:
-            print_error(f"Unknown versioncheck response for {firmid=}.")
-            print_error("There seems to be a bug. Open an issue!")
-            print_error("This is the response of Brother's update API:")
-            print_error(resp.text)
+            LOGGER.error("Unknown versioncheck response for firmid=%s.", firmid)
+            LOGGER.error("There seems to be a bug.")
+            if LOGGER.level > logging.DEBUG:
+                LOGGER.error(
+                    "Run again with --debug and open an issue. Append the full output."
+                )
+            else:
+                LOGGER.error("Open an issue with the full debug output: %s", ISSUE_URL)
             return None
 
     path = resp_xml.find("PATH")
     if not path:
-        print_error(f"Did not receive download url for {firmid}.")
-        print_error("Either this firmware part is up to date or there is a bug.")
-        print_error("This is the response of Brother's update API:")
-        print_error(resp.text)
+        LOGGER.warning("Did not receive download url for %s.", firmid)
+        LOGGER.warning("Either this firmware part is up to date or there is a bug.")
         return None
 
     return path.text

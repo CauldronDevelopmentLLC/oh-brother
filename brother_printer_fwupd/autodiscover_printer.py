@@ -10,7 +10,7 @@ import termcolor
 
 import zeroconf
 from .models import MDNSPrinterInfo
-from .utils import clear_screen, print_debug, print_error
+from .utils import clear_screen, LOGGER
 
 if typing.TYPE_CHECKING:
     from .models import IPAddress
@@ -31,7 +31,7 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
         self._browser: typing.Optional[zeroconf.ServiceBrowser] = None
 
     def remove_service(self, zc: zeroconf.Zeroconf, type_: str, name: str):
-        print_debug(f"Service {name} removed")
+        LOGGER.debug(f"Service {name} removed")
         self._remove_printer_infos_by_name(name)
 
         if self._mode == "CLI":
@@ -48,7 +48,7 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
             try:
                 ip_addr = ipaddress.ip_address(addr)
             except ValueError as err:
-                print_error(str(err))
+                LOGGER.critical(err)
 
                 return
 
@@ -88,7 +88,9 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
         service_info = zc.get_service_info(type_, name)
 
         if not service_info:
-            print_error(f"Received empty add_service request. Ignoring: {type_} {name}")
+            LOGGER.error(
+                f"Received empty add_service request. Ignoring: {type_} {name}"
+            )
 
             return
 
@@ -101,12 +103,12 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
             self._update_screen()
 
     def add_service(self, zc: zeroconf.Zeroconf, type_: str, name: str):
-        print_debug(f"Service {name} added")
+        LOGGER.debug(f"Service {name} added")
         self._add_printer_infos(zc, type_, name)
 
     def update_service(self, zc: zeroconf.Zeroconf, type_: str, name: str):
         """Update a service."""
-        print_debug("Service {name} updated")
+        LOGGER.debug("Service {name} updated")
         self._remove_printer_infos_by_name(name)
         self._add_printer_infos(zc, type_, name)
 
@@ -118,7 +120,7 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
         termcolor.cprint("Scanning Network via MDNS...", attrs=["italic"])
 
         if self._invalid_answer:
-            print_error("Invalid answer.")
+            LOGGER.error("Invalid answer.")
         print()
 
         if self._printers:
@@ -204,7 +206,7 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
         try:
             return self._printers[choice]
         except KeyError:
-            print_error("This should not happen. Try again.")
+            LOGGER.critical("This should not happen. Try again.")
 
             return None
 

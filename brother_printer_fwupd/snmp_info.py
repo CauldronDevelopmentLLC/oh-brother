@@ -16,7 +16,7 @@ from pysnmp.hlapi import (
 )
 
 from .models import FWInfo, IPAddress, SNMPPrinterInfo
-from .utils import print_error
+from .utils import LOGGER
 
 SNMP_OID = "iso.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2"
 
@@ -61,11 +61,11 @@ def get_snmp_info(
     ):
 
         if error_indication:
-            print_error(error_indication)
+            LOGGER.critical(error_indication)
             sys.exit(1)
         elif error_status:
             position = var_binds[int(error_index) - 1][0] if error_index else "?"
-            print_error(f"{error_status.prettyPrint()} at {position}")
+            LOGGER.critical("%s at %s", error_status.prettyPrint(), position)
             sys.exit(1)
         else:
             # TODO this is ugly
@@ -77,7 +77,7 @@ def get_snmp_info(
             match = SNMP_RE.match(data)
 
             if not match:
-                print_error(f'Data "{data}" does not match the regex.')
+                LOGGER.critical('Data "%s" does not match the regex.', data)
                 sys.exit(1)
             name = match.group("name")
             value = match.group("value")
@@ -97,8 +97,9 @@ def get_snmp_info(
                         fw_info = FWInfo()
 
     if not fw_info.is_empty:
-        print_error(
-            f"Did not receive firmid or firmver from printer via SNMP: {fw_info=}"
+        LOGGER.critical(
+            "Did not receive firmid or firmver from printer via SNMP: fw_info=%s",
+            fw_info,
         )
         sys.exit(1)
 
