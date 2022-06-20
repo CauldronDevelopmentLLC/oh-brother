@@ -42,7 +42,7 @@ reqInfo = '''
             <SELIALNO></SELIALNO>
             <NAME></NAME>
             <SPEC></SPEC>
-            <DRIVER></DRIVER>
+            <DRIVER>EWS</DRIVER>
             <FIRMINFO>
               <FIRM></FIRM>
             </FIRMINFO>
