@@ -32,6 +32,8 @@ To make it a bit easier, I wrote this simple script.
 4. Download the firmware
 5. Upload the firmware to the printer over port 9100 (PDL-Datastream / jetdirect)
 
+*Note: Make sure the required protocols are enabled in the printer settings*
+
 ## Tested with:
 
 - MFC-9332CDW
