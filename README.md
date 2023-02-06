@@ -17,10 +17,16 @@ I hope people find this project useful but I am not getting paid for it.  If you
 ## On Debian-based distributions (e.g. Debian/Mint/Ubuntu)
 
 Python 2: 
-    sudo apt-get install -y python-pysnmp4
+
+```
+sudo apt-get install -y python-pysnmp4 
+```
 
 Python 3:
-    sudo apt-get install -y python3-future python3-pysnmp4
+
+```
+sudo apt-get install -y python3-future python3-pysnmp4 python-is-python3
+```
 
 ## On RedHat-based distributions (e.g. Fedora/CentOS)
 
