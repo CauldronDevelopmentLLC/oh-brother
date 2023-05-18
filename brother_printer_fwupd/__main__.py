@@ -173,10 +173,9 @@ def run():
         LOGGER.critical("No printer given or found.")
         sys.exit(1)
 
-    assert printer_ip
-
     if use_snmp:
         LOGGER.info("Querying printer info via SNMP.")
+        assert printer_ip, "Printer IP is required but not given."
         printer_info = get_snmp_info(target=printer_ip, community=args.community)
     else:
         printer_info = SNMPPrinterInfo(
@@ -214,6 +213,7 @@ def run():
             LOGGER.info("Skipping firmware upload due to --download-only")
         else:
             LOGGER.info("Uploading firmware file to printer via jetdirect.")
+            assert printer_ip, "Printer IP is required but not given"
             upload_fw(target=printer_ip, port=upload_port, file_path=args.fw_file)
             input("Continue? ")
 
