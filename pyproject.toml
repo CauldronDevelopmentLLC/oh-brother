@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "brother_printer_fwupd"
-version = "0.5.1"
+version = "0.5.2"
 description = "Script to update the firmware of some Brother printers (e. g. MFC)."
 authors = ["sedrubal <dev@sedrubal.de>"]
 repository = "https://github.com/sedrubal/brother_printer_fwupd.git"

@@ -48,12 +48,7 @@ class GitHubIssueReporter:
         self.logger.addHandler(self._handler)
 
     def __exit__(self, exc_class, exc, tb):
-        #  breakpoint()
-        #  sys.stdout = self._std_out
-        #  sys.stderr = self._std_err
-        #  sys.stdin = self._std_in
-
-        if not exc_class:
+        if not exc_class or exc_class is SystemExit:
             return
 
         LOGGER.error(exc)
