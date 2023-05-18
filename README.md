@@ -57,7 +57,7 @@ pip install --user --upgrade brother-printer-fwupd
 1. Clone the repo
 2. Install system dependencies: `libxlt-dev`, `libxml2-dev`
 3. `poetry install`
-4. `poetry run brother_printer_fwupd.py`
+4. `poetry run brother_printer_fwupd`
 
 Use at your own risk!™
 

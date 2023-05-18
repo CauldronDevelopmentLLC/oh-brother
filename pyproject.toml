@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "brother_printer_fwupd"
-version = "0.4.2"
+version = "0.5.0"
 description = "Script to update the firmware of some Brother printers (e. g. MFC)."
 authors = ["sedrubal <dev@sedrubal.de>"]
 repository = "https://github.com/sedrubal/brother_printer_fwupd.git"
@@ -13,7 +13,7 @@ requests = "^2.27.1"
 BeautifulSoup4 = "^4.9.1"
 Gooey = { version = "^1.0.3", optional = true }
 lxml = "^4.9.0"
-zeroconf = { version = "^0.28.7", optional = true }
+zeroconf = "^0.28.7"
 termcolor = "^1.1.0"
 
 [tool.poetry.dev-dependencies]
@@ -30,7 +30,6 @@ build-backend = "poetry.masonry.api"
 
 [tool.poetry.extras]
 graphical = ["Gooey"]
-autodiscover = ["zeroconf"]
 
 [tool.poetry.scripts]
 brother_printer_fwupd = 'brother_printer_fwupd.__main__:main'

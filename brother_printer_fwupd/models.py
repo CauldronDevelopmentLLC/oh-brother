@@ -1,19 +1,19 @@
 """Types and model classes / definitions."""
-import typing
+import termcolor
 import ipaddress
 from dataclasses import dataclass, field
 import argparse
 
 
-IPAddress = typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 
 
 @dataclass
 class FWInfo:
     """Firmware fragment info."""
 
-    firmid: typing.Optional[str] = field(default=None)
-    firmver: typing.Optional[str] = field(default=None)
+    firmid: str | None = field(default=None)
+    firmver: str | None = field(default=None)
 
     @property
     def is_complete(self):
@@ -35,7 +35,10 @@ class FWInfo:
             firmid, firmver = value.split("@", 1)
         except ValueError as err:
             raise argparse.ArgumentTypeError(
-                f"Invalid firmware ID {value}. Format: firmid@firmver"
+                termcolor.colored(
+                    f"Invalid firmware ID {value}. Format: firmid@firmver",
+                    "red",
+                )
             ) from err
         return cls(firmid, firmver)
 
@@ -44,10 +47,10 @@ class FWInfo:
 class SNMPPrinterInfo:
     """Information about a printer."""
 
-    model: typing.Optional[str] = field(default=None)
-    serial: typing.Optional[str] = field(default=None)
-    spec: typing.Optional[str] = field(default=None)
-    fw_versions: typing.List[FWInfo] = field(default_factory=list)
+    model: str | None = field(default=None)
+    serial: str | None = field(default=None)
+    spec: str | None = field(default=None)
+    fw_versions: list[FWInfo] = field(default_factory=list[FWInfo])
 
 
 @dataclass
@@ -56,7 +59,7 @@ class MDNSPrinterInfo:
 
     ip_addr: IPAddress
     name: str
-    port: typing.Optional[int]
-    product: typing.Optional[str]
-    note: typing.Optional[str]
-    uuid: typing.Optional[str]
+    port: int | None
+    product: str | None
+    note: str | None
+    uuid: str | None

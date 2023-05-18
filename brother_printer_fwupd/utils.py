@@ -2,11 +2,17 @@
 
 # pylint: disable=R1705
 
+import io
+import logging
 import os
+import shlex
 import sys
+import traceback
+import typing
+from pathlib import Path
+from urllib.parse import urlencode
 
 import termcolor
-import logging
 
 try:
     from gooey import Gooey
@@ -23,7 +29,91 @@ def gooey_if_exists(func):
         return func
 
 
-def add_logging_level(level_name: str, level_num: int, method_name: str = None):
+class GitHubIssueReporter:
+    def __init__(
+        self,
+        logger: logging.Logger,
+        issue_url: str,
+        handler_cb: typing.Callable[[str], None],
+    ):
+        self.logger = logger
+        self.issue_url = issue_url
+        self.handler_cb = handler_cb
+        self._handler = logging.StreamHandler(stream=io.StringIO())
+        self._handler.setLevel(logging.DEBUG)
+
+    def __enter__(self):
+        self._handler.stream.seek(0)
+        self._handler.stream.truncate()
+        self.logger.addHandler(self._handler)
+
+    def __exit__(self, exc_class, exc, tb):
+        #  breakpoint()
+        #  sys.stdout = self._std_out
+        #  sys.stderr = self._std_err
+        #  sys.stdin = self._std_in
+
+        if not exc_class:
+            return
+
+        LOGGER.error(exc)
+        self.logger.removeHandler(self._handler)
+        self._handler.stream.seek(0)
+        log_output = self._handler.stream.read()
+        prog = Path(sys.argv[0]).name
+        cmd = prog + " " + shlex.join(sys.argv[1:])
+        exc_io = io.StringIO()
+        traceback.print_exception(exc, file=exc_io)
+        exc_io.seek(0)
+        exception = exc_io.read()
+        report_url = (
+            self.issue_url
+            + "?"
+            + urlencode(
+                {
+                    "title": str(exc),
+                    "body": f"""
+**Description:**
+
+*please describe the issue*
+
+**Command:**
+
+```sh
+{cmd}
+```
+
+**Output:**
+
+```
+{log_output}
+```
+
+**Exception:**
+
+```python
+{exception}
+```
+""".strip(),
+                }
+            )
+        )
+        self.handler_cb(report_url)
+        sys.exit(1)
+
+
+def get_running_os() -> typing.Literal[
+    "WINDOWS"
+] | typing.Literal["MAC"] | typing.Literal["LINUX"]:
+    if sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
+        return "WINDOWS"
+    elif sys.platform.startswith("darwin"):
+        return "MAC"
+    else:
+        return "LINUX"
+
+
+def add_logging_level(level_name: str, level_num: int, method_name: str | None = None):
     """
     Comprehensively adds a new logging level to the `logging` module and the
     currently configured logging class.
@@ -114,10 +204,10 @@ class TerminalFormatter(logging.Formatter):
         )
 
 
-LOGGER = logging.getLogger(name="brother_printer_fwupd")
 CONSOLE_LOG_HANDLER = logging.StreamHandler(stream=sys.stderr)
-CONSOLE_LOG_HANDLER.setLevel(logging.DEBUG)
 CONSOLE_LOG_HANDLER.setFormatter(TerminalFormatter())
+LOGGER = logging.getLogger(name="brother_printer_fwupd")
+LOGGER.setLevel(logging.DEBUG)
 LOGGER.addHandler(CONSOLE_LOG_HANDLER)
 
 

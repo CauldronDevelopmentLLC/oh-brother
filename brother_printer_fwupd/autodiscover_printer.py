@@ -7,13 +7,10 @@ import ipaddress
 import typing
 
 import termcolor
-
 import zeroconf
-from .models import MDNSPrinterInfo
-from .utils import clear_screen, LOGGER
 
-if typing.TYPE_CHECKING:
-    from .models import IPAddress
+from .models import MDNSPrinterInfo
+from .utils import LOGGER, clear_screen
 
 ZEROCONF_SERVICE_DOMAIN = "_pdl-datastream._tcp.local."
 
@@ -24,11 +21,11 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
     """Discoverer of printers."""
 
     def __init__(self):
-        self._printers: typing.List[MDNSPrinterInfo] = []
+        self._printers: list[MDNSPrinterInfo] = list[MDNSPrinterInfo]()
         self._zc = zeroconf.Zeroconf()
         self._mode = "CLI"
         self._invalid_answer = False
-        self._browser: typing.Optional[zeroconf.ServiceBrowser] = None
+        self._browser: zeroconf.ServiceBrowser | None = None
 
     def remove_service(self, zc: zeroconf.Zeroconf, type_: str, name: str):
         LOGGER.debug(f"Service {name} removed")
@@ -170,12 +167,18 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
                 flush=True,
             )
         else:
-            termcolor.cprint("No printers found yet. [Enter: Cancel]", attrs=["italic"])
+            termcolor.cprint(
+                "No printers found yet.", "yellow", attrs=["italic"], end=" "
+            )
+            termcolor.cprint(
+                "Run with --printer=<ip> to skip autodiscovery. [Enter: Cancel]",
+                attrs=["italic"],
+            )
 
-    def run_cli(self) -> typing.Optional[MDNSPrinterInfo]:
+    def run_cli(self) -> MDNSPrinterInfo | None:
         """Run as interactive terminal application."""
         self._mode = "CLI"
-        choice: typing.Optional[int] = None
+        choice: int | None = None
         self._run()
         self._update_screen()
 

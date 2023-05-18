@@ -1,12 +1,10 @@
 """Logic to download the correct firmware from the official Brother server."""
-import sys
 import typing
-import logging
+from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
 
-from . import ISSUE_URL
 from .utils import LOGGER
 
 if typing.TYPE_CHECKING:
@@ -19,9 +17,9 @@ FW_UPDATE_URL = (
 
 def get_download_url(
     printer_info: "SNMPPrinterInfo",
+    reported_os: str,
     firmid: str = "MAIN",
-    reported_os: typing.Optional[str] = None,
-) -> typing.Optional[str]:
+) -> str | None:
     """Get the firmware download URL for the target printer."""
     firm_info = ""
 
@@ -32,14 +30,6 @@ def get_download_url(
             <VERSION>{fw_info.firmver}</VERSION>
         </FIRM>
         """
-
-    if reported_os is None:
-        if sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
-            reported_os = "WINDOWS"
-        elif sys.platform.startswith("darwin"):
-            reported_os = "MAC"
-        else:
-            reported_os = "LINUX"
 
     api_data = f"""
 <REQUESTINFO>
@@ -88,15 +78,7 @@ def get_download_url(
             LOGGER.success("Firmware part %s seems to be up to date.", firmid)
             return None
         else:
-            LOGGER.error("Unknown versioncheck response for firmid=%s.", firmid)
-            LOGGER.error("There seems to be a bug.")
-            if LOGGER.level > logging.DEBUG:
-                LOGGER.error(
-                    "Run again with --debug and open an issue. Append the full output."
-                )
-            else:
-                LOGGER.error("Open an issue with the full debug output: %s", ISSUE_URL)
-            return None
+            raise ValueError(f"Unknown versioncheck response for firmid={firmid}.")
 
     path = resp_xml.find("PATH")
     if not path:
@@ -107,7 +89,7 @@ def get_download_url(
     return path.text
 
 
-def download_fw(url: str, dst: str = "firmware.djf"):
+def download_fw(url: str, dst: Path = Path("firmware.djf")):
     """Download the firmware."""
     resp = requests.get(url, stream=True)
     resp.raise_for_status()
@@ -115,7 +97,7 @@ def download_fw(url: str, dst: str = "firmware.djf"):
     size_written = 0
     chunk_size = 8192
 
-    with open(dst, "wb") as out:
+    with dst.open("wb") as out:
         for chunk in resp.iter_content(chunk_size):
             size_written += out.write(chunk)
             progress = size_written / total_size * 100

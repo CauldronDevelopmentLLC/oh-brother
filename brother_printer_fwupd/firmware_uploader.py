@@ -1,6 +1,6 @@
 """Upload firmware to the brinter."""
 import socket
-import typing
+from pathlib import Path
 
 from .models import IPAddress
 
@@ -8,7 +8,9 @@ PORT_SERVICE_NAME = "pdl-datastream"
 
 
 def upload_fw(
-    target: IPAddress, port: typing.Optional[int], file_name: str = "firmware.djf"
+    target: IPAddress,
+    port: int | None,
+    file_path: Path = Path("firmware.djf"),
 ):
     """
     Upload the firmware to the printer via PDL Datastream / JetDirect.
@@ -23,5 +25,5 @@ def upload_fw(
     with socket.socket(addr_info[0], addr_info[1], 0) as sock:
         sock.connect(addr_info[4])
 
-        with open(file_name, "rb") as fw_file:
+        with file_path.open("rb") as fw_file:
             sock.sendfile(fw_file)
