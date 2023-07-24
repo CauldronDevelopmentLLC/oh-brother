@@ -149,7 +149,17 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
                     else ""
                 )
                 print(
-                    f"{num_str} {ip_addr_str} {port_str} {name_str} {product_str} {note_str} {uuid_str}"
+                    " ".join(
+                        (
+                            num_str,
+                            ip_addr_str,
+                            port_str,
+                            name_str,
+                            product_str,
+                            note_str,
+                            uuid_str,
+                        )
+                    )
                 )
 
             print()

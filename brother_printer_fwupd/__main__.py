@@ -103,7 +103,10 @@ def parse_args():
         "--download-only",
         dest="download_only",
         action="store_true",
-        help="Do no install update but download firmware and save it unter the path given with --fw-file.",
+        help=(
+            "Do no install update but download firmware and save it"
+            " under the path given with --fw-file."
+        ),
     )
     parser.add_argument(
         "--debug",
@@ -125,7 +128,7 @@ def main():
             ret = (
                 input(
                     termcolor.colored(
-                        "Do you want open an issue? [yN] ", color="yellow"
+                        "Do you want to open an issue on Github? [yN] ", color="yellow"
                     )
                 )
                 .strip()
@@ -139,17 +142,28 @@ def main():
             elif ret.lower() == "n" or not ret:
                 return
 
-    with GitHubIssueReporter(
-        logger=LOGGER,
-        issue_url=ISSUE_URL,
-        handler_cb=handler_cb,
-    ):
-        run()
+    try:
+        with GitHubIssueReporter(
+            logger=LOGGER,
+            issue_url=ISSUE_URL,
+            handler_cb=handler_cb,
+        ) as issue_reporter:
+            run(issue_reporter)
+    except KeyboardInterrupt:
+        print()
+        LOGGER.critical("Quit")
+        sys.exit(0)
 
 
-def run():
+def run(issue_reporter: GitHubIssueReporter):
     """Do a firmware upgrade."""
     args = parse_args()
+
+    issue_reporter.set_context_data("--community", args.community)
+    issue_reporter.set_context_data("--fw-file", str(args.fw_file))
+    issue_reporter.set_context_data("--os", args.os)
+    issue_reporter.set_context_data("--download-only", args.download_only)
+    issue_reporter.set_context_data("--debug", args.debug)
 
     CONSOLE_LOG_HANDLER.setLevel(logging.DEBUG if args.debug else logging.INFO)
 
@@ -173,6 +187,9 @@ def run():
         LOGGER.critical("No printer given or found.")
         sys.exit(1)
 
+    if printer_ip:
+        issue_reporter.set_context_data("--printer", str(printer_ip))
+
     if use_snmp:
         LOGGER.info("Querying printer info via SNMP.")
         assert printer_ip, "Printer IP is required but not given."
@@ -183,6 +200,21 @@ def run():
             serial=args.serial,
             spec=args.spec,
             fw_versions=args.fw_versions,
+        )
+
+    if printer_info.model:
+        issue_reporter.set_context_data("--model", printer_info.model)
+
+    if printer_info.serial:
+        issue_reporter.set_context_data("--serial", printer_info.serial)
+
+    if printer_info.spec:
+        issue_reporter.set_context_data("--spec", printer_info.spec)
+
+    if printer_info.fw_versions:
+        issue_reporter.set_context_data(
+            "--fw-versions",
+            [str(fw_version) for fw_version in printer_info.fw_versions],
         )
 
     versions_str = ", ".join(str(fw_info) for fw_info in printer_info.fw_versions)

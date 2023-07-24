@@ -82,7 +82,7 @@ def get_download_url(
 
     path = resp_xml.find("PATH")
     if not path:
-        LOGGER.warning("Did not receive download url for %s.", firmid)
+        LOGGER.warning("Did not receive download url for firmid '%s'.", firmid)
         LOGGER.warning("Either this firmware part is up to date or there is a bug.")
         return None
 

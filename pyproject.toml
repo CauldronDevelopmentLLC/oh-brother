@@ -33,3 +33,6 @@ graphical = ["Gooey"]
 
 [tool.poetry.scripts]
 brother_printer_fwupd = 'brother_printer_fwupd.__main__:main'
+
+[tool.ruff]
+line-length = 100

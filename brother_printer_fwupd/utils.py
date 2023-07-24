@@ -41,14 +41,17 @@ class GitHubIssueReporter:
         self.handler_cb = handler_cb
         self._handler = logging.StreamHandler(stream=io.StringIO())
         self._handler.setLevel(logging.DEBUG)
+        self._context = dict[str, str | list[str]]()
 
     def __enter__(self):
         self._handler.stream.seek(0)
         self._handler.stream.truncate()
         self.logger.addHandler(self._handler)
 
+        return self
+
     def __exit__(self, exc_class, exc, tb):
-        if not exc_class or exc_class is SystemExit:
+        if not exc_class or exc_class in (SystemExit, KeyboardInterrupt):
             return
 
         LOGGER.error(exc)
@@ -61,6 +64,28 @@ class GitHubIssueReporter:
         traceback.print_exception(exc, file=exc_io)
         exc_io.seek(0)
         exception = exc_io.read()
+        emulation_cmd_parts = [prog]
+
+        for key, value in self._context.items():
+            if isinstance(value, bool) and value is True:
+                emulation_cmd_parts.append(key)
+            elif isinstance(value, list):
+                emulation_cmd_parts.extend([key, *value])
+            else:
+                emulation_cmd_parts.extend([key, value])
+        emulation_cmd = shlex.join(emulation_cmd_parts)
+        emulation_block = (
+            ""
+            if not self._context
+            else f"""
+**Command to emulate scenario:**
+
+```sh
+{emulation_cmd}
+```
+
+"""
+        )
         report_url = (
             self.issue_url
             + "?"
@@ -77,7 +102,7 @@ class GitHubIssueReporter:
 ```sh
 {cmd}
 ```
-
+{emulation_block}
 **Output:**
 
 ```
@@ -95,6 +120,9 @@ class GitHubIssueReporter:
         )
         self.handler_cb(report_url)
         sys.exit(1)
+
+    def set_context_data(self, key: str, value: str | bool | list[str]):
+        self._context[key] = value
 
 
 def get_running_os() -> typing.Literal[
