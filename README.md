@@ -2,8 +2,7 @@
 Oh Brother! is a simple cross-platform utility written in Python which can
 update Brother printer firmwares.  It was born out of frustration with Brother
 for not providing a tool which works in Linux.  This tool should work on any
-platform that has Python with ``python-pysnmp4`` and ``python-pyasn1``.  It was tested with Python
-v2.7.8 and v2.7.5.  It now also works with Python 3.
+platform that has Python 3 with ``python-pysnmp4`` and ``python-pyasn1``.
 
 I found information on how to do this
 [here](https://cbompart.wordpress.com/2014/02/05/printer-update/) and
@@ -16,16 +15,8 @@ I hope people find this project useful but I am not getting paid for it.  If you
 
 ## On Debian-based distributions (e.g. Debian/Mint/Ubuntu)
 
-Python 2: 
-
 ```
-sudo apt-get install -y python-pysnmp4 
-```
-
-Python 3:
-
-```
-sudo apt-get install -y python3-future python3-pysnmp4 python-is-python3
+sudo apt-get install -y python3-pysnmp4
 ```
 
 ## On RedHat-based distributions (e.g. Fedora/CentOS)
@@ -80,4 +71,5 @@ version you currently have.
 Please feel free to submit a pull-request.
 
 ## Other options
-An alternate bash script for firmware download can be found [here](https://cbompart.wordpress.com/2014/05/26/brother-printer-firmware-part-2/).
+An alternate bash script for firmware download can be found
+[here](https://cbompart.wordpress.com/2014/05/26/brother-printer-firmware-part-2/).
