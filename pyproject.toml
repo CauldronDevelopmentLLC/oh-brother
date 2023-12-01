@@ -9,6 +9,7 @@ license = "GPL-3.0-or-later"
 [tool.poetry.dependencies]
 python = "^3.9"
 pysnmp = "^4.4.12"
+pyasn1 = "^0.5.1"
 requests = "^2.27.1"
 BeautifulSoup4 = "^4.9.1"
 Gooey = { version = "^1.0.3", optional = true }
