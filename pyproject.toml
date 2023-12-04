@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "brother_printer_fwupd"
-version = "0.5.2"
+version = "0.5.3"
 description = "Script to update the firmware of some Brother printers (e. g. MFC)."
 authors = ["sedrubal <dev@sedrubal.de>"]
 repository = "https://github.com/sedrubal/brother_printer_fwupd.git"
@@ -9,6 +9,7 @@ license = "GPL-3.0-or-later"
 [tool.poetry.dependencies]
 python = "^3.9"
 pysnmp = "^4.4.12"
+pyasn1 = "^0.5.1"
 requests = "^2.27.1"
 BeautifulSoup4 = "^4.9.1"
 Gooey = { version = "^1.0.3", optional = true }
