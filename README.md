@@ -8,7 +8,7 @@ Brother provides drivers etc. for Linux but when you want to update the firmware
 Brother only provides ugly programs for Windows or Mac OS.
 I think, you should do firmware upgrades from time to time, because the supported printers have
 advanced network functionality, like SNMP, HTTP Web Management UI, and much more.
-Some of them can be connected with ethernet and some of them with WiFi.
+Some of them can be connected with Ethernet and some of them with WiFi.
 The more features a system has, the greater is the risk of bugs.
 
 You could try to use the official tools. You could try to run the Windows EXE in Wine for example.
@@ -24,10 +24,15 @@ I tried it and it worked :tada:
 
 To make it a bit easier, I wrote this simple script.
 
+## See also
+
+- https://github.com/CauldronDevelopmentLLC/oh-brother
+- https://cbompart.wordpress.com/2014/05/26/brother-printer-firmware-part-2/
+
 ## What the script does:
 
 1. Optional (if no IP is given): Discover the printer using MDNS
-2. Get printer info (like model name, firmware versions, etc.) with SNMP
+2. Get printer info (like model name, firmware versions, etc.) with SNMP (v2c)
 3. Query the firmware download URL from Brother API server
 4. Download the firmware
 5. Upload the firmware to the printer over port 9100 (PDL-Datastream / jetdirect)
@@ -36,11 +41,12 @@ To make it a bit easier, I wrote this simple script.
 
 ## Tested with:
 
-- MFC-9332CDW
-- MFC-9142CDN
 - DCP-9020CDW
 - DCP-9022CDW
 - HL-5370DW
+- MFC-9142CDN
+- MFC-9332CDW
+- MFC-L3750CDW
 
 ## Usage
 
@@ -65,4 +71,4 @@ Contributions welcome.
 
 ## License
 
-[© 2021 sedrubal (GPLv3)](./LICENSE)
+[© 2024 sedrubal (GPLv3)](./LICENSE)

@@ -6,6 +6,7 @@ import io
 import logging
 import os
 import shlex
+import string
 import sys
 import traceback
 import typing
@@ -41,7 +42,7 @@ class GitHubIssueReporter:
         self.handler_cb = handler_cb
         self._handler = logging.StreamHandler(stream=io.StringIO())
         self._handler.setLevel(logging.DEBUG)
-        self._context = dict[str, str | list[str]]()
+        self._context = dict[str, str | bool | list[str]]()
 
     def __enter__(self):
         self._handler.stream.seek(0)
@@ -54,7 +55,12 @@ class GitHubIssueReporter:
         if not exc_class or exc_class in (SystemExit, KeyboardInterrupt):
             return
 
-        LOGGER.error(exc)
+        if isinstance(exc, ExceptionGroup):
+            LOGGER.error("%s  Errors:", exc.message)
+            for err in exc.exceptions:
+                LOGGER.error("  - %s", err)
+        else:
+            LOGGER.error(exc)
         self.logger.removeHandler(self._handler)
         self._handler.stream.seek(0)
         log_output = self._handler.stream.read()
@@ -67,8 +73,9 @@ class GitHubIssueReporter:
         emulation_cmd_parts = [prog]
 
         for key, value in self._context.items():
-            if isinstance(value, bool) and value is True:
-                emulation_cmd_parts.append(key)
+            if isinstance(value, bool):
+                if value is True:
+                    emulation_cmd_parts.append(key)
             elif isinstance(value, list):
                 emulation_cmd_parts.extend([key, *value])
             else:
@@ -125,9 +132,9 @@ class GitHubIssueReporter:
         self._context[key] = value
 
 
-def get_running_os() -> typing.Literal[
-    "WINDOWS"
-] | typing.Literal["MAC"] | typing.Literal["LINUX"]:
+def get_running_os() -> (
+    typing.Literal["WINDOWS"] | typing.Literal["MAC"] | typing.Literal["LINUX"]
+):
     if sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
         return "WINDOWS"
     elif sys.platform.startswith("darwin"):
@@ -240,3 +247,19 @@ def clear_screen():
     #  print(chr(27) + '[2j')
     #  print('\033c')
     #  print('\x1bc')
+
+
+def sluggify(value: str) -> str:
+    """Convert value to a string that can be safely used as file name."""
+    trans_tab = {
+        " ": "_",
+        "@": "-",
+        ":": "-",
+    }
+    trans = str.maketrans(trans_tab)
+    allowed_chars = string.ascii_letters + string.digits + "".join(trans_tab.values())
+    assert "/" not in allowed_chars
+    assert "." not in allowed_chars
+    value = value.strip().lower().translate(trans)
+    value = "".join(c for c in value if c in allowed_chars)
+    return value

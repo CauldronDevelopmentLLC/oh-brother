@@ -1,9 +1,10 @@
 """Types and model classes / definitions."""
-import termcolor
+
+import argparse
 import ipaddress
 from dataclasses import dataclass, field
-import argparse
 
+import termcolor
 
 IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 
@@ -12,6 +13,7 @@ IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 class FWInfo:
     """Firmware fragment info."""
 
+    # TODO don't allow None here...
     firmid: str | None = field(default=None)
     firmver: str | None = field(default=None)
 

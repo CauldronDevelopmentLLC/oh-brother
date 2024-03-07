@@ -20,7 +20,7 @@ termcolor.ATTRIBUTES["italic"] = 3  # type: ignore
 class PrinterDiscoverer(zeroconf.ServiceListener):
     """Discoverer of printers."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._printers: list[MDNSPrinterInfo] = list[MDNSPrinterInfo]()
         self._zc = zeroconf.Zeroconf()
         self._mode = "CLI"

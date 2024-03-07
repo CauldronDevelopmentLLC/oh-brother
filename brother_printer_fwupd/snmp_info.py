@@ -59,7 +59,6 @@ def get_snmp_info(
         ContextData(),
         ObjectType(ObjectIdentity(SNMP_OID)),
     ):
-
         if error_indication:
             LOGGER.critical(error_indication)
             sys.exit(1)

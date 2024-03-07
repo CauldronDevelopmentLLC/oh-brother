@@ -83,13 +83,12 @@ def parse_args():
         help="SNMP Community string for the printer (default: '%(default)s').",
     )
     parser.add_argument(
-        "-f",
         "-o",
-        "--fw-file",
+        "--fw-dir",
         type=Path,
-        dest="fw_file",
-        default="firmware.djf",
-        help="File name for the downloaded firmware (default: '%(default)s').",
+        dest="fw_dir",
+        default=".",
+        help="Directory, where the firmware will be downloaded (default: '%(default)s').",
     )
     parser.add_argument(
         "--os",
@@ -105,7 +104,7 @@ def parse_args():
         action="store_true",
         help=(
             "Do no install update but download firmware and save it"
-            " under the path given with --fw-file."
+            " under the directory path given with --fw-dir."
         ),
     )
     parser.add_argument(
@@ -160,7 +159,7 @@ def run(issue_reporter: GitHubIssueReporter):
     args = parse_args()
 
     issue_reporter.set_context_data("--community", args.community)
-    issue_reporter.set_context_data("--fw-file", str(args.fw_file))
+    issue_reporter.set_context_data("--fw-dir", str(args.fw_dir))
     issue_reporter.set_context_data("--os", args.os)
     issue_reporter.set_context_data("--download-only", args.download_only)
     issue_reporter.set_context_data("--debug", args.debug)
@@ -228,7 +227,9 @@ def run(issue_reporter: GitHubIssueReporter):
     download_url: str | None = None
 
     for fw_part in printer_info.fw_versions:
-        download_url = get_download_url(
+        LOGGER.info("Try to get information for firmware part %s", fw_part)
+
+        latest_version, download_url = get_download_url(
             printer_info=printer_info,
             firmid=str(fw_part.firmid),
             reported_os=args.os,
@@ -237,16 +238,36 @@ def run(issue_reporter: GitHubIssueReporter):
         if not download_url:
             continue
 
+        assert download_url
+
         LOGGER.debug("  Download URL is %s", download_url)
         LOGGER.success("Downloading firmware file.")
-        download_fw(url=download_url, dst=args.fw_file)
+        fw_file_path = download_fw(
+            url=download_url,
+            dst_dir=args.fw_dir,
+            printer_model=printer_info.model,
+            fw_part=fw_part,
+            latest_version=latest_version,
+        )
 
         if args.download_only:
             LOGGER.info("Skipping firmware upload due to --download-only")
         else:
             LOGGER.info("Uploading firmware file to printer via jetdirect.")
             assert printer_ip, "Printer IP is required but not given"
-            upload_fw(target=printer_ip, port=upload_port, file_path=args.fw_file)
+            try:
+                upload_fw(
+                    target=printer_ip, port=upload_port, fw_file_path=fw_file_path
+                )
+            except OSError as err:
+                LOGGER.error(
+                    "Could not upload firmware %s to update part %s: %s",
+                    fw_file_path,
+                    fw_part,
+                    str(err),
+                )
+                continue
+
             input("Continue? ")
 
     LOGGER.success("Done.")
