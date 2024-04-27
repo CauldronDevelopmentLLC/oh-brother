@@ -21,7 +21,11 @@ def upload_fw(
     cat LZ5413_P.djf | nc lp.local 9100
     ```
     """
-    port = port if port else socket.getservbyname(PORT_SERVICE_NAME)
+    if port is None:
+        try:
+            port = socket.getservbyname(PORT_SERVICE_NAME)
+        except OSError:
+            port = 9100
     addr_info = socket.getaddrinfo(str(target), port, 0, 0, socket.SOL_TCP)[0]
     with socket.socket(addr_info[0], addr_info[1], 0) as sock:
         sock.connect(addr_info[4])
