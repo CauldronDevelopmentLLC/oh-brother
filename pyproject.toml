@@ -15,7 +15,7 @@ requests = "^2.31.0"
 BeautifulSoup4 = "^4.12.0"
 Gooey = { version = "^1.0.8", optional = true }
 lxml = "^4.9.0"
-zeroconf = "^0.28.8"
+zeroconf = { "^0.28.8", optional = true }
 termcolor = "^1.1.0"
 
 [tool.poetry.group.dev.dependencies]
@@ -35,6 +35,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.extras]
 graphical = ["Gooey"]
+autodiscover = ["zeroconf"]
 
 [tool.poetry.scripts]
 brother_printer_fwupd = 'brother_printer_fwupd.__main__:main'
