@@ -3,10 +3,11 @@
 import argparse
 import ipaddress
 from dataclasses import dataclass, field
+from typing import List, Optional, Union
 
 import termcolor
 
-IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
+IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 
 
 @dataclass
@@ -14,8 +15,8 @@ class FWInfo:
     """Firmware fragment info."""
 
     # TODO don't allow None here...
-    firmid: str | None = field(default=None)
-    firmver: str | None = field(default=None)
+    firmid: Optional[str] = field(default=None)
+    firmver: Optional[str] = field(default=None)
 
     @property
     def is_complete(self):
@@ -49,10 +50,10 @@ class FWInfo:
 class SNMPPrinterInfo:
     """Information about a printer."""
 
-    model: str | None = field(default=None)
-    serial: str | None = field(default=None)
-    spec: str | None = field(default=None)
-    fw_versions: list[FWInfo] = field(default_factory=list[FWInfo])
+    model: Optional[str] = field(default=None)
+    serial: Optional[str] = field(default=None)
+    spec: Optional[str] = field(default=None)
+    fw_versions: List[FWInfo] = field(default_factory=list)
 
 
 @dataclass
@@ -61,7 +62,7 @@ class MDNSPrinterInfo:
 
     ip_addr: IPAddress
     name: str
-    port: int | None
-    product: str | None
-    note: str | None
-    uuid: str | None
+    port: Optional[int]
+    product: Optional[str]
+    note: Optional[str]
+    uuid: Optional[str]

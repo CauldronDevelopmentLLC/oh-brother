@@ -9,6 +9,7 @@ import sys
 import typing
 import webbrowser
 from pathlib import Path
+from typing import Optional
 
 import termcolor
 
@@ -71,7 +72,7 @@ def parse_args():
         "--fw-versions",
         dest="fw_versions",
         nargs="*",
-        default=list[FWInfo](),
+        default=list(),  # In Python 3.10+: list[FWInfo]
         type=FWInfo.from_str,
         help="Skip SNMP scanning by directly specifying the firmware parts to update.",
     )
@@ -166,8 +167,8 @@ def run(issue_reporter: GitHubIssueReporter):
 
     CONSOLE_LOG_HANDLER.setLevel(logging.DEBUG if args.debug else logging.INFO)
 
-    printer_ip: typing.Optional["IPAddress"] = args.printer
-    upload_port: int | None = None
+    printer_ip: Optional["IPAddress"] = args.printer
+    upload_port: Optional[int] = None
     use_snmp = (
         not args.model or not args.serial or not args.spec or not args.fw_versions
     )
@@ -224,7 +225,7 @@ def run(issue_reporter: GitHubIssueReporter):
         versions_str,
     )
     LOGGER.info("Querying firmware download URL from Brother update API.")
-    download_url: str | None = None
+    download_url: Optional[str] = None
 
     for fw_part in printer_info.fw_versions:
         LOGGER.info("Try to get information for firmware part %s", fw_part)

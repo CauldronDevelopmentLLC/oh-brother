@@ -5,6 +5,7 @@
 
 import ipaddress
 import typing
+from typing import Optional
 
 import termcolor
 import zeroconf
@@ -21,11 +22,11 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
     """Discoverer of printers."""
 
     def __init__(self) -> None:
-        self._printers: list[MDNSPrinterInfo] = list[MDNSPrinterInfo]()
+        self._printers: List[MDNSPrinterInfo] = list()  # In Python 3.10+, list[MDNSPrinterInfo]
         self._zc = zeroconf.Zeroconf()
         self._mode = "CLI"
         self._invalid_answer = False
-        self._browser: zeroconf.ServiceBrowser | None = None
+        self._browser: Optional[zeroconf.ServiceBrowser] = None
 
     def remove_service(self, zc: zeroconf.Zeroconf, type_: str, name: str):
         LOGGER.debug(f"Service {name} removed")
@@ -185,10 +186,10 @@ class PrinterDiscoverer(zeroconf.ServiceListener):
                 attrs=["italic"],
             )
 
-    def run_cli(self) -> MDNSPrinterInfo | None:
+    def run_cli(self) -> Optional[MDNSPrinterInfo]:
         """Run as interactive terminal application."""
         self._mode = "CLI"
-        choice: int | None = None
+        choice: Optional[int] = None
         self._run()
         self._update_screen()
 

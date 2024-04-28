@@ -3,6 +3,7 @@
 import typing
 from copy import copy
 from pathlib import Path
+from typing import Optional, Tuple
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -49,7 +50,7 @@ def get_download_url(
     printer_info: "SNMPPrinterInfo",
     reported_os: str,
     firmid: str = "MAIN",
-) -> tuple[str | None, str | None]:
+) -> Tuple[Optional[str], Optional[str]]:
     """
     Get the firmware download URL for the target printer.
 
@@ -75,7 +76,7 @@ def get_download_url(
 
         api_request_data.REQUESTINFO.FIRMUPDATEINFO.MODELINFO.FIRMINFO.append(firm_info)
 
-    errors: list[ValueError] = []
+    errors: List[ValueError] = []
 
     for modification_callback in (copy, apply_mfc_l3750cdw_hack):
         api_request_data = modification_callback(api_request_data)
@@ -105,7 +106,7 @@ def get_download_url(
     raise ExceptionGroup("Giving up fetching firmware.", errors)
 
 
-def parse_response(response: str, firmid: str) -> tuple[str | None, str | None]:
+def parse_response(response: str, firmid: str) -> Tuple[Optional[str], Optional[str]]:
     """
     Parse the API response and return a tuple of the latest version and the download URL.
     """
