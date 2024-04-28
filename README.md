@@ -40,12 +40,13 @@ Currently the script does the following:
     * Query Brother servers for the latest firmware.
     * Download the firmware from Brother.
     * Display firmware info, then ask user whether to proceed with updating.
-    * Upload the firmware via FTP to the printer.
+    * Upload the firmware to the printer via either TCP port 9100 (passwordless) or FTP (with admin password).
     * Wait for user to signal that the update is done.
 
 # How to use it
-You need to know both the IP address of your printer and the *admin* password.
-Run the script, enter the password when asked and press ```Enter``` after each
+You need to know both the IP address of your printer, and the *admin* password
+if uploading firmware via FTP.
+Run the script and press ```Enter``` after each
 firmware has completed updating.
 
 
@@ -56,8 +57,10 @@ firmware has completed updating.
 # If it doesn't work for you
 YMMV.
 
-## Set admin password
-Make sure you've set the admin password on the printer via the web interface.
+In order to send firmware updates via TCP port 9100, "Raw Port" must be
+enabled in the printer's management interface. In order to send firmware
+updates via FTP, you must have first set an admin password on the
+printer via the web interface.
 
 ## Use ``--category``
 Try specifying ``--category`` on the command line.  E.g.:

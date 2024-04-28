@@ -20,6 +20,7 @@ import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 import argparse
 import sys
+import socket
 from ftplib import FTP
 import ssl
 import getpass
@@ -70,21 +71,24 @@ parser.add_argument('-c', '--category',
 parser.add_argument('-m', '--model',
                     help = 'Force a specific printer model')
 parser.add_argument('-C', '--community', default = 'public',
-                    help = 'SNMP community')
+                    help = 'SNMP community (default: %(default)s)')
 parser.add_argument('-f', '--version', default = 'B0000000000',
                     help = 'Force a specific firmware version, must be used '
                     'with --category')
 parser.add_argument('-t', '--test', action = 'store_true',
                     help = 'Test only, don\'t do upgrades')
-parser.add_argument('-p', '--password', help = 'Printer admin password')
+parser.add_argument('-p', '--password',
+                    help = 'Upload firmware via FTP using printer admin password '
+                    '(default is passwordless upload via TCP port 9100)')
 
 args = parser.parse_args()
 
 # Provide information about requirements
 print('You may need to check the following in the printer\'s configuration:')
 print('  - SNMP service is enabled (for fetching model and versions)')
-print('  - FTP service is enabled (for uploading firmware)')
-print('  - an administrator password is set (for connecting to FTP)')
+if args.password:
+  print('  - FTP service is enabled (for uploading firmware)')
+  print('  - an administrator password is set (for connecting to FTP)')
 input('Press Ctrl-C to exit or Enter to continue...')
 
 # Get SNMP data
@@ -259,28 +263,32 @@ def update_firmware(cat, version):
   print('- power is reliable')
   input('Press Ctrl-C to prevent upgrade or Enter to continue...')
 
-  # Get printer password
-  if args.password is None:
-    print()
-    args.password = getpass.getpass('Enter printer admin password: ')
-
   # Upload firmware to printer
   print('Now uploading firmware to printer (DO NOT REMOVE POWER!)...')
   sys.stdout.flush()
 
-  try:
-    ftp = FTP(args.ip, user = args.password) # Yes send password as user
-    ftp.storbinary('STOR ' + filename, open(filename, 'rb'))
-    ftp.quit()
+  if args.password is None:
+    ai = socket.getaddrinfo(args.ip, 9100, proto=socket.SOL_TCP)[0]
+    try:
+      with socket.socket(ai[0], ai[1], ai[2]) as sock:
+        sock.connect(ai[4])
+        sock.sendfile(open(filename, 'rb'))
 
-    print('done')
-    print()
-    print('Wait for printer to finish updating and reboot before continuing.')
-    input('Press Enter to continue...')
+    except OSError as e:
+      print('Firmware update aborted due to error while uploading')
+      print(e)
+  else:
+    try:
+      ftp = FTP(args.ip, user = args.password) # Yes send password as user
+      ftp.storbinary('STOR ' + filename, open(filename, 'rb'))
+      ftp.quit()
+    except ConnectionRefusedError as e:
+      print('Firmware update aborted due to connection refused')
 
-  except ConnectionRefusedError as e:
-    print('Connection refused, firmware update aborted')
-
+  print('done')
+  print()
+  print('Wait for printer to finish updating and reboot before continuing.')
+  input('Press Enter to continue...')
 
 for entry in firmInfo:
   print()
