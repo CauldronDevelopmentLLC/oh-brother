@@ -156,12 +156,13 @@ print()
 def sslwrap(func):
   @wraps(func)
   def bar(*args, **kw):
-    kw['ssl_version'] = ssl.PROTOCOL_TLSv1
+    kw['ssl_version'] = ssl.PROTOCOL_TLS_CLIENT
     return func(*args, **kw)
 
   return bar
 
-ssl.wrap_socket = sslwrap(ssl.wrap_socket)
+context = ssl.create_default_context()
+ssl.wrap_socket = sslwrap(context.wrap_socket)
 
 
 def update_firmware(cat, version):
