@@ -25,10 +25,11 @@ sudo apt-get install -y python3-pysnmp4
 sudo yum install python-pysnmp
 ```
 
-## On OSX or Windows with Python installer (PIP)
+## On MacOS or Windows with Python installer (PIP)
 
 ```
-pip install pysnmp
+pip install pysnmp==4.4.12
+pip install pyasn1==0.4.8
 ```
 
 # What it does
