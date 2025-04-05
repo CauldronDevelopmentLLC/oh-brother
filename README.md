@@ -22,7 +22,9 @@ sudo apt-get install -y python3-pysnmp4
 ## On RedHat-based distributions (e.g. Fedora/CentOS)
 
 ```
-sudo yum install python-pysnmp
+sudo yum install python3-pip
+pip3 install pysnmplib -U
+
 ```
 
 ## On OSX or Windows with Python installer (PIP)
