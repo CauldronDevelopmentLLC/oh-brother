@@ -1,0 +1,10 @@
+# oh-brother uses the `pysnmp.entity.rfc3413.oneliner` module, which was
+# removed in v6.2 (see https://github.com/lextudio/pysnmp/compare/v6.1.4..v6.2).
+# So v6.1.4 is the highest version of PySNMP that we can currently use.
+#
+# Additionally, Python 3.12 completely removes the `asyncore` module from
+# the standard library, so PySNMP versions older than 6.x do not work with
+# it.
+
+pysnmp >= 4, <= 6.1.4 ; python_version < "3.12"
+pysnmp >= 6, <= 6.1.4 ; python_version >= "3.12"
