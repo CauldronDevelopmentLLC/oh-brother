@@ -13,6 +13,13 @@ I hope people find this project useful but I am not getting paid for it.  If you
 
 # Install prerequisites
 
+The `requirements.txt` file contains the required dependency versioning for
+the PySNMP dependency. It can be installed with:
+
+```
+pip install -r requirements.txt
+```
+
 ## On Debian-based distributions (e.g. Debian/Mint/Ubuntu)
 
 ```
