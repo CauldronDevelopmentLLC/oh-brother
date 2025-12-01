@@ -36,12 +36,11 @@ reqInfo = '''
 <REQUESTINFO>
   <FIRMUPDATETOOLINFO>
     <FIRMCATEGORY></FIRMCATEGORY>
-    <OS>LINUX</OS>
-    <INSPECTMODE>1</INSPECTMODE>
+    <OS>WIN_NATIVE</OS>
+    <INSPECTMODE>0</INSPECTMODE>
   </FIRMUPDATETOOLINFO>
   <FIRMUPDATEINFO>
     <MODELINFO>
-      <SELIALNO></SELIALNO>
       <NAME></NAME>
       <SPEC></SPEC>
       <DRIVER>EWS</DRIVER>
@@ -51,7 +50,6 @@ reqInfo = '''
     </MODELINFO>
     <DRIVERCNT>1</DRIVERCNT>
     <LOGNO>2</LOGNO>
-    <ERRBIT></ERRBIT>
     <NEEDRESPONSE>1</NEEDRESPONSE>
   </FIRMUPDATEINFO>
 </REQUESTINFO>
@@ -189,7 +187,6 @@ def update_firmware(cat, version):
   e.text = cat if cat != 'FIRM' else 'MAIN'
 
   modelInfo = xml.find('FIRMUPDATEINFO/MODELINFO')
-  modelInfo.find('SELIALNO').text = serial
   modelInfo.find('NAME').text = model
   modelInfo.find('SPEC').text = spec
 
@@ -204,7 +201,7 @@ def update_firmware(cat, version):
   # Request firmware data
   url = 'https://firmverup.brother.co.jp/'
   url += 'kne_bh7_update_nt_ssl/ifax2.asmx/fileUpdate'
-  hdrs = {'Content-Type': 'text/xml'}
+  hdrs = {'Content-Type': 'text/xml', 'User-Agent': 'BrHttpc/1.00'}
 
   print('Looking up printer firmware info at vendor server...')
   sys.stdout.flush()
