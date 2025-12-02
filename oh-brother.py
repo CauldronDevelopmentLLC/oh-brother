@@ -37,7 +37,7 @@ reqInfo = '''
   <FIRMUPDATETOOLINFO>
     <FIRMCATEGORY></FIRMCATEGORY>
     <OS>WIN_NATIVE</OS>
-    <INSPECTMODE>0</INSPECTMODE>
+    <INSPECTMODE></INSPECTMODE>
   </FIRMUPDATETOOLINFO>
   <FIRMUPDATEINFO>
     <MODELINFO>
@@ -75,6 +75,9 @@ parser.add_argument('-f', '--version', default = 'B0000000000',
                     'with --category')
 parser.add_argument('-t', '--test', action = 'store_true',
                     help = 'Test only, don\'t do upgrades')
+parser.add_argument('--beta', action = 'store_true',
+                    help = 'Download the latest beta firmware instead of the '
+                    'default stable version.')
 parser.add_argument('-p', '--password',
                     help = 'Upload firmware via FTP using printer admin password '
                     '(default is passwordless upload via TCP port 9100)')
@@ -183,8 +186,9 @@ def update_firmware(cat, version):
   #     <ID>FIRM</ID> <NAME>MAIN</NAME>
   #
 
-  e = xml.find('FIRMUPDATETOOLINFO/FIRMCATEGORY')
-  e.text = cat if cat != 'FIRM' else 'MAIN'
+  toolInfo = xml.find('FIRMUPDATETOOLINFO')
+  toolInfo.find('FIRMCATEGORY').text = cat if cat != 'FIRM' else 'MAIN'
+  toolInfo.find('INSPECTMODE').text = '1' if args.beta else '0'
 
   modelInfo = xml.find('FIRMUPDATEINFO/MODELINFO')
   modelInfo.find('NAME').text = model
