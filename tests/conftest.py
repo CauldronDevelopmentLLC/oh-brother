@@ -4,7 +4,4 @@ from unittest.mock import MagicMock
 
 pysnmp_mock = MagicMock()
 sys.modules['pysnmp'] = pysnmp_mock
-sys.modules['pysnmp.entity'] = pysnmp_mock.entity
-sys.modules['pysnmp.entity.rfc3413'] = pysnmp_mock.entity.rfc3413
-sys.modules['pysnmp.entity.rfc3413.oneliner'] = pysnmp_mock.entity.rfc3413.oneliner
-sys.modules['pysnmp.entity.rfc3413.oneliner.cmdgen'] = MagicMock()
+sys.modules['pysnmp.hlapi'] = MagicMock()

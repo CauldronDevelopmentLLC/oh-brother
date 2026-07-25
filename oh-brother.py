@@ -14,17 +14,16 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from pysnmp.entity.rfc3413.oneliner import cmdgen
+from pysnmp.hlapi import (
+    walkCmd, SnmpEngine, CommunityData, UdpTransportTarget,
+    ContextData, ObjectType, ObjectIdentity,
+)
 import urllib.request, urllib.error, urllib.parse
 import xml.etree.ElementTree as ET
-import xml.dom.minidom as minidom
 import argparse
 import sys
 import socket
 from ftplib import FTP
-import ssl
-import getpass
-from functools import wraps
 
 
 # Yes indeed, "SELIALNO"
@@ -59,7 +58,7 @@ reqInfo = '''
 def parse_snmp_table(table, verbose=False):
     """Parse SNMP walk result table into model/serial/spec/firmware info.
     
-    table: list of list of (name, value) tuples from cmdgen.nextCmd()
+    table: list of list of (oid, value) tuples from SNMP walk
     Returns: dict with keys: serial, model, spec, firmwares (list of {cat, version})
     """
     if verbose:
@@ -162,19 +161,6 @@ parser.add_argument('-p', '--password',
                     '(default is passwordless upload via TCP port 9100)')
 parser.add_argument('-y', '--yes', action = 'store_true',
                     help = 'Skip all confirmation prompts (non-interactive mode)')
-
-
-# We need SSLv3
-def sslwrap(func):
-  @wraps(func)
-  def bar(*args, **kw):
-    kw['ssl_version'] = ssl.PROTOCOL_TLS_CLIENT
-    return func(*args, **kw)
-
-  return bar
-
-context = ssl.create_default_context()
-ssl.wrap_socket = sslwrap(context.wrap_socket)
 
 
 def update_firmware(cat, version):
@@ -288,18 +274,29 @@ def main():
     print('Getting SNMP data from printer at %s...' % args.ip)
     sys.stdout.flush()
 
-    cg = cmdgen.CommandGenerator()
-    error, status, index, table = cg.nextCmd(
-      cmdgen.CommunityData(args.community),
-      cmdgen.UdpTransportTarget((args.ip, 161)),
-      '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
+    table = []
+    for errorIndication, errorStatus, errorIndex, varBinds in walkCmd(
+        SnmpEngine(),
+        CommunityData(args.community),
+        UdpTransportTarget((args.ip, 161), timeout=30),
+        ContextData(),
+        ObjectType(ObjectIdentity('1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')),
+        lexicographicMode=False,
+    ):
+        if errorIndication:
+            raise Exception(errorIndication)
+        if errorStatus:
+            raise Exception('ERROR: %s at %s' % (
+                errorStatus.prettyPrint(),
+                errorIndex and varBinds[int(errorIndex) - 1] or '?'))
+        row = []
+        for varBind in varBinds:
+            oid = str(varBind[0])
+            val = str(varBind[1]) if varBind[1] is not None else ''
+            row.append((oid, val))
+        table.append(row)
 
     print('done')
-
-    if error: raise Exception(error)
-    if status:
-      raise Exception('ERROR: %s at %s' % (
-        status.prettyPrint(), index and table[-1][int(index) - 1] or '?'))
 
     # Process SNMP data
     info = parse_snmp_table(table, verbose=args.verbose)

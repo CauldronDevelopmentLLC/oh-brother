@@ -9,7 +9,7 @@ Cross-platform Python 3 CLI to update Brother printer firmware. SNMP discovery �
 - **Repo:** https://github.com/rvasilev/oh-brother
 - **Upstream:** https://github.com/CauldronDevelopmentLLC/oh-brother (commit `a9c8b10`)
 - **License:** GPLv2
-- **Lines:** 339, single file (`oh-brother.py`)
+- **Lines:** 336, single file (`oh-brother.py`)
 - **Branch:** `dev` (refactored with test suite)
 
 ## Architecture
@@ -42,7 +42,7 @@ Original upstream had no functions beyond `update_firmware()` and `sslwrap()` (d
 | `parse_brother_response(xml_bytes)` | 118-135 | Parse Brother API XML → dict with version_check, firmware_url |
 | `update_firmware(cat, version)` | 180-271 | Orchestration: XML build → HTTP POST → parse → download → upload |
 | `main()` | 274-339 | Entry point: argparse → SNMP walk → parse → update loop |
-| `sslwrap` / `bar` | 168-177 | Dead code (retained from upstream, never called) |
+| `sslwrap`/`bar` | — | **Removed** — dead code, risked Python 3.14 breakage |
 
 Module is import-safe: `if __name__ == '__main__':` guard at line 339.
 
@@ -58,7 +58,7 @@ Module is import-safe: `if __name__ == '__main__':` guard at line 339.
 
 ## Code conventions
 
-- **Python 3.10** runtime (pysnmp `oneliner` requires `asyncore`, removed in 3.12)
+- **Python 3.10+** runtime
 - **Procedural style** — pure functions extracted, no classes
 - **No external HTTP libraries** — stdlib `urllib` only
 - **XML parsing** — stdlib `xml.etree.ElementTree`
@@ -98,7 +98,7 @@ Module is import-safe: `if __name__ == '__main__':` guard at line 339.
 **Test infrastructure:**
 - `tests/conftest.py` — mocks pysnmp at `sys.modules` level so tests run on Python ≥3.12
 - `tests/test_oh_brother.py` — imports module via `importlib.util` (filename has hyphen)
-- Fixture data from real HL-L2865DW at 192.168.88.65
+- Fixture data captured from a Brother printer
 - `test_test_flag_stops_before_upload` is skipped — HTTP download mocking needs deeper `urllib.request` interception
 
 ```bash
@@ -109,17 +109,15 @@ python3 -m pytest tests/ -v
 python3 -m pytest tests/ --cov=oh-brother.py --cov-report=term-missing
 
 # Real printer integration test
-echo "" | ~/.pyenv/versions/3.10.14/bin/python3 oh-brother.py --test --yes 192.168.88.65
+python3 oh-brother.py --test --yes <printer IP>
 ```
-
-Roman's test printer: **Brother HL-L2865DW** at `192.168.88.65`, SPEC `0906`, MAIN `1.24`, serial `E83118M5N186598`.
 
 ## Known issues (upstream a9c8b10)
 
 | Issue | Location | Severity | Status |
 |---|---|---|---|
-| `pysnmp.oneliner` needs `asyncore` | Line 17 | **Critical** — breaks on Python ≥3.12 | Migration planned (hlapi, ~15 lines) |
-| Dead `ssl.wrap_socket` monkey-patch | Lines 166-175 | **None** — unused | Retained for upstream compat |
+| `pysnmp.oneliner` needs `asyncore` | Line 17 | **Fixed** — migrated to `pysnmp.hlapi` (walkCmd) | ✅ Done |
+| Dead `ssl.wrap_socket` monkey-patch | — | **Removed** — dead code | ✅ Done |
 | Bare `urlopen()` — no timeout, no error handling | Lines 198, 222 | High — hangs on network failure | Unfixed |
 | Downloads to CWD not temp dir | Line 216 | Medium | Unfixed |
 | `socket.sendfile()` — may fail on some platforms | Line 253 | Medium | Unfixed |
@@ -128,47 +126,21 @@ Roman's test printer: **Brother HL-L2865DW** at `192.168.88.65`, SPEC `0906`, MA
 | No empty-file check before upload | After download | Medium | Unfixed |
 | `--version` default `B0000000000` is a magic sentinel | Line 152 | Low | Unfixed |
 
-## Python 3.12+ migration plan
+## Python 3.12+ migration (completed)
 
-### Problem
-`pysnmp.entity.rfc3413.oneliner` (line 17) was removed in pysnmp ≥6.2, which dropped `asyncore` to support Python 3.12+.
+### What changed
 
-### Solution
-Replace the old `oneliner` API with `pysnmp.hlapi.v1arch` (same package, maintained by lextudio). Only ~15 lines change in `main()` — the SNMP walk call plus error handling. The 3 pure functions (`parse_snmp_table`, `build_firmware_xml`, `parse_brother_response`) don't change at all.
-
-**Before:**
-```python
-from pysnmp.entity.rfc3413.oneliner import cmdgen
-cg = cmdgen.CommandGenerator()
-error, status, index, table = cg.nextCmd(
-    cmdgen.CommunityData(args.community),
-    cmdgen.UdpTransportTarget((args.ip, 161)),
-    '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
-```
-
-**After:**
-```python
-from pysnmp.hlapi.v1arch import *
-iterator = nextCmd(
-    SnmpEngine(),
-    CommunityData(args.community),
-    UdpTransportTarget((args.ip, 161)),
-    ContextData(),
-    ObjectType(ObjectIdentity('1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')),
-    lexicographicMode=False)
-# varBinds format: [(ObjectType, payload), ...] instead of [(name, value), ...]
-```
+- `from pysnmp.entity.rfc3413.oneliner import cmdgen` → `from pysnmp.hlapi import (walkCmd, SnmpEngine, CommunityData, UdpTransportTarget, ContextData, ObjectType, ObjectIdentity)`
+- `cg.nextCmd(...)` (blocking, returned entire walk) → `for ... in walkCmd(...)` (generator, yields per-row)
+- pysnmp pinned to `==6.1.4` (last version with synchronous hlapi; 7.x is async-only)
+- Works on Python 3.10 **and** 3.13
 
 ### Steps
-1. Pin `pysnmp >= 6.2` in requirements.txt
-2. Rewrite SNMP walk in `main()` (~15 lines)
-3. Update `conftest.py` to mock `pysnmp.hlapi.v1arch` instead of `pysnmp.entity.rfc3413.oneliner`
-4. Adapt `TestMainSmoke` to use hlapi-shaped mock returns
-5. Run test suite (45 tests) — all must stay green
-6. Integration test: `--test --yes` against HL-L2865DW
-
-### Risk
-**Low.** Same OID walk, same wire protocol, same Brother API calls. Only the Python API surface changes. The printer doesn't care which SNMP library you use. Test coverage exists on the orchestration path (`TestMainSmoke`).
+1. Replace import + SNMP walk in `main()` (~15 lines)
+2. Update `conftest.py` to mock `pysnmp.hlapi` instead of `pysnmp.entity.rfc3413.oneliner`
+3. Adapt `TestMainSmoke` to mock `oh.walkCmd` (generator) instead of `oh.cmdgen.CommandGenerator`
+4. Run test suite — 45 passed, 1 skipped on 3.10 and 3.13
+5. Integration test against HL-L2865DW — both Python versions ✓
 
 ## Changelog (fork, `dev` branch)
 
@@ -178,3 +150,5 @@ iterator = nextCmd(
 | Phase 0.5 | Added `-y`/`--yes` flag (non-interactive mode) |
 | Phase 1 | 31 initial tests (parse, XML, CLI) |
 | Phase 1.5 | 45 tests: added `TestMainSmoke` (5), `TestUpdateFirmware` (4), collapsed CLI to parameterized |
+| Phase 2 | Migrated pysnmp `oneliner` → `hlapi.walkCmd` — works on Python 3.10+3.13 |
+| Phase 2.1 | Bear review fixes: requirements.txt, UdpTransportTarget timeout=30, removed dead sslwrap, purged unused imports |
