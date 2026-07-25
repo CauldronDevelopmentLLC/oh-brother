@@ -55,6 +55,85 @@ reqInfo = '''
 </REQUESTINFO>
 '''
 
+
+def parse_snmp_table(table, verbose=False):
+    """Parse SNMP walk result table into model/serial/spec/firmware info.
+    
+    table: list of list of (name, value) tuples from cmdgen.nextCmd()
+    Returns: dict with keys: serial, model, spec, firmwares (list of {cat, version})
+    """
+    if verbose:
+        print(table)
+    
+    serial = None
+    model = None
+    spec = None
+    firmId = None
+    firmwares = []
+    
+    for row in table:
+        for name, value in row:
+            value = str(value)
+            if value.find('=') != -1:
+                name, value = value.split('=')
+                value = value.strip(' "\r\n')
+                if name == 'MODEL':
+                    model = value
+                if name == 'SERIAL':
+                    serial = value
+                if name == 'SPEC':
+                    spec = value
+                if name == 'FIRMID':
+                    firmId = value
+                if name == 'FIRMVER' and firmId and value:
+                    firmwares.append({'cat': firmId, 'version': value})
+    
+    return {'serial': serial, 'model': model, 'spec': spec, 'firmwares': firmwares}
+
+
+def build_firmware_xml(model, spec, category, version, beta=False):
+    """Build the XML request body for Brother's firmware update API.
+    
+    Returns: bytes (UTF-8 encoded XML)
+    """
+    import xml.etree.ElementTree as ET
+    # Use the module-level reqInfo template
+    xml = ET.ElementTree(ET.fromstring(reqInfo))
+    
+    toolInfo = xml.find('FIRMUPDATETOOLINFO')
+    toolInfo.find('FIRMCATEGORY').text = category if category != 'FIRM' else 'MAIN'
+    toolInfo.find('INSPECTMODE').text = '1' if beta else '0'
+    
+    modelInfo = xml.find('FIRMUPDATEINFO/MODELINFO')
+    modelInfo.find('NAME').text = model
+    modelInfo.find('SPEC').text = spec
+    
+    firm = modelInfo.find('FIRMINFO/FIRM')
+    ET.SubElement(firm, 'ID').text = category if category != 'IFAX' else 'MAIN'
+    ET.SubElement(firm, 'VERSION').text = version
+    
+    return ET.tostring(xml.getroot(), encoding='utf8')
+
+
+def parse_brother_response(xml_bytes):
+    """Parse Brother firmware API XML response.
+    
+    Returns: dict with keys:
+        version_check: str or None — '1' means up to date
+        firmware_url: str or None — download URL if update available
+    """
+    import xml.etree.ElementTree as ET
+    
+    xml = ET.fromstring(xml_bytes)
+    
+    version_check = xml.find('FIRMUPDATEINFO/VERSIONCHECK')
+    version_check = version_check.text if version_check is not None else None
+    
+    firmware_url = xml.find('FIRMUPDATEINFO/PATH')
+    firmware_url = firmware_url.text if firmware_url is not None else None
+    
+    return {'version_check': version_check, 'firmware_url': firmware_url}
+
 # Parse args
 usage = '%(prog)s [OPTIONS] <printer IP address>'
 description = 'A platform independent tool for updating Brother firmwares'
@@ -81,76 +160,8 @@ parser.add_argument('--beta', action = 'store_true',
 parser.add_argument('-p', '--password',
                     help = 'Upload firmware via FTP using printer admin password '
                     '(default is passwordless upload via TCP port 9100)')
-
-args = parser.parse_args()
-
-# Provide information about requirements
-print('You may need to check the following in the printer\'s configuration:')
-print('  - SNMP service is enabled (for fetching model and versions)')
-if args.password:
-  print('  - FTP service is enabled (for uploading firmware)')
-  print('  - an administrator password is set (for connecting to FTP)')
-input('Press Ctrl-C to exit or Enter to continue...')
-
-# Get SNMP data
-print('Getting SNMP data from printer at %s...' % args.ip)
-sys.stdout.flush()
-
-cg = cmdgen.CommandGenerator()
-error, status, index, table = cg.nextCmd(
-  cmdgen.CommunityData(args.community),
-  cmdgen.UdpTransportTarget((args.ip, 161)),
-  '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
-
-print('done')
-
-if error: raise Exception(error)
-if status:
-  raise Exception('ERROR: %s at %s' % (
-    status.prettyPrint(), index and table[-1][int(index) - 1] or '?'))
-
-# Process SNMP data
-serial   = None
-model    = None
-spec     = None
-firmId   = None
-firmInfo = []
-
-if args.verbose: print(table)
-
-for row in table:
-  for name, value in row:
-    value = str(value)
-
-    if value.find('=') != -1:
-      name, value = value.split('=')
-      value = value.strip(' "\r\n')
-
-      if name == 'MODEL':  model  = value
-      if name == 'SERIAL': serial = value
-      if name == 'SPEC':   spec   = value
-      if name == 'FIRMID': firmId = value
-      if name == 'FIRMVER' and firmId and value:
-        firmInfo.append({'cat': firmId, 'version': value})
-
-# Override model
-if args.model: model = args.model
-
-# Override category and version
-if args.category:
-  firmInfo = [{'cat': args.category, 'version': args.version}]
-
-# Print SNMP info
-print()
-print('    serial =', serial)
-print('     model =', model)
-print('      spec =', spec)
-print('   firmwares')
-
-for entry in firmInfo:
-  print('    category = %(cat)s, version = %(version)s' % entry)
-
-print()
+parser.add_argument('-y', '--yes', action = 'store_true',
+                    help = 'Skip all confirmation prompts (non-interactive mode)')
 
 
 # We need SSLv3
@@ -171,34 +182,7 @@ def update_firmware(cat, version):
 
   print('Updating %s version %s' % (cat, version))
 
-  # Build XML request info
-  xml = ET.ElementTree(ET.fromstring(reqInfo))
-
-  # At least for MFC-J4510DW M1405200717:EFAC (see Internet dumps)
-  # and MFC-J4625DW, and MFC-J4420DW
-  # this element's value is *not* equal to per-firmware cat[egory] value
-  # (a "MAIN"-deviating "FIRM" in these cases!),
-  # but rather a *fixed* "MAIN" value which is a completely unrelated item.
-  #
-  # According to verCheck response, FIRMCATEGORY should be MAIN when FIRM/ID
-  # equals FIRM
-  #  From response dump:
-  #     <ID>FIRM</ID> <NAME>MAIN</NAME>
-  #
-
-  toolInfo = xml.find('FIRMUPDATETOOLINFO')
-  toolInfo.find('FIRMCATEGORY').text = cat if cat != 'FIRM' else 'MAIN'
-  toolInfo.find('INSPECTMODE').text = '1' if args.beta else '0'
-
-  modelInfo = xml.find('FIRMUPDATEINFO/MODELINFO')
-  modelInfo.find('NAME').text = model
-  modelInfo.find('SPEC').text = spec
-
-  firm = modelInfo.find('FIRMINFO/FIRM')
-  ET.SubElement(firm, 'ID').text = cat if cat != 'IFAX' else 'MAIN'
-  ET.SubElement(firm, 'VERSION').text = version
-
-  requestInfo = ET.tostring(xml.getroot(), encoding = 'utf8')
+  requestInfo = build_firmware_xml(model, spec, cat, version, beta=args.beta)
 
   if args.verbose: print('request: %s' % requestInfo)
 
@@ -218,22 +202,14 @@ def update_firmware(cat, version):
 
   if args.verbose: print('response: %s' % response)
 
-  # Parse response
-  xml = ET.fromstring(response)
-
-  # Check version
-  versionCheck = xml.find('FIRMUPDATEINFO/VERSIONCHECK')
-  if versionCheck is not None and versionCheck.text == '1':
+  result = parse_brother_response(response)
+  if result['version_check'] == '1':
     print('Firmware already up to date')
     return
-
-  # Get firmware URL
-  firmwareURL = xml.find('FIRMUPDATEINFO/PATH')
-  if firmwareURL is None:
+  if result['firmware_url'] is None:
     print('No firmware update info path found')
     return
-
-  firmwareURL = firmwareURL.text
+  firmwareURL = result['firmware_url']
   filename = firmwareURL.split('/')[-1]
 
   # Download firmware
@@ -263,7 +239,8 @@ def update_firmware(cat, version):
   print('- firmware file version is compatible with your hardware')
   print('- network connection is reliable (prefer wired connection to WLAN)')
   print('- power is reliable')
-  input('Press Ctrl-C to prevent upgrade or Enter to continue...')
+  if not args.yes:
+    input('Press Ctrl-C to prevent upgrade or Enter to continue...')
 
   # Upload firmware to printer
   print('Now uploading firmware to printer (DO NOT REMOVE POWER!)...')
@@ -290,11 +267,73 @@ def update_firmware(cat, version):
   print('done')
   print()
   print('Wait for printer to finish updating and reboot before continuing.')
-  input('Press Enter to continue...')
+  if not args.yes:
+    input('Press Enter to continue...')
 
-for entry in firmInfo:
-  print()
-  update_firmware(entry['cat'], entry['version'])
 
-print()
-print('Success')
+def main():
+    global args, serial, model, spec, firmInfo
+    args = parser.parse_args()
+
+    # Provide information about requirements
+    print('You may need to check the following in the printer\'s configuration:')
+    print('  - SNMP service is enabled (for fetching model and versions)')
+    if args.password:
+      print('  - FTP service is enabled (for uploading firmware)')
+      print('  - an administrator password is set (for connecting to FTP)')
+    if not args.yes:
+        input('Press Ctrl-C to exit or Enter to continue...')
+
+    # Get SNMP data
+    print('Getting SNMP data from printer at %s...' % args.ip)
+    sys.stdout.flush()
+
+    cg = cmdgen.CommandGenerator()
+    error, status, index, table = cg.nextCmd(
+      cmdgen.CommunityData(args.community),
+      cmdgen.UdpTransportTarget((args.ip, 161)),
+      '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
+
+    print('done')
+
+    if error: raise Exception(error)
+    if status:
+      raise Exception('ERROR: %s at %s' % (
+        status.prettyPrint(), index and table[-1][int(index) - 1] or '?'))
+
+    # Process SNMP data
+    info = parse_snmp_table(table, verbose=args.verbose)
+    serial = info['serial']
+    model = info['model']
+    spec = info['spec']
+    firmInfo = info['firmwares']
+
+    # Override model
+    if args.model: model = args.model
+
+    # Override category and version
+    if args.category:
+      firmInfo = [{'cat': args.category, 'version': args.version}]
+
+    # Print SNMP info
+    print()
+    print('    serial =', serial)
+    print('     model =', model)
+    print('      spec =', spec)
+    print('   firmwares')
+
+    for entry in firmInfo:
+      print('    category = %(cat)s, version = %(version)s' % entry)
+
+    print()
+
+    for entry in firmInfo:
+      print()
+      update_firmware(entry['cat'], entry['version'])
+
+    print()
+    print('Success')
+
+
+if __name__ == '__main__':
+    main()
