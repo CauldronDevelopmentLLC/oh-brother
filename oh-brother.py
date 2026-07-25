@@ -23,6 +23,7 @@ import xml.etree.ElementTree as ET
 import argparse
 import sys
 import socket
+import os
 from ftplib import FTP
 
 
@@ -74,7 +75,7 @@ def parse_snmp_table(table, verbose=False):
         for name, value in row:
             value = str(value)
             if value.find('=') != -1:
-                name, value = value.split('=')
+                name, value = value.split('=', 1)
                 value = value.strip(' "\r\n')
                 if name == 'MODEL':
                     model = value
@@ -181,7 +182,7 @@ def update_firmware(cat, version):
   sys.stdout.flush()
 
   req = urllib.request.Request(url, requestInfo, hdrs)
-  response = urllib.request.urlopen(req)
+  response = urllib.request.urlopen(req, timeout=30)
   response = response.read()
 
   print('done')
@@ -199,23 +200,25 @@ def update_firmware(cat, version):
   filename = firmwareURL.split('/')[-1]
 
   # Download firmware
-  f = open(filename, 'wb')
-
   print('Downloading firmware file %s from vendor server...' % filename)
   sys.stdout.flush()
 
   req = urllib.request.Request(firmwareURL)
-  response = urllib.request.urlopen(req)
+  response = urllib.request.urlopen(req, timeout=30)
 
-  while True:
-    block = response.read(102400)
-    if not block: break
-    f.write(block)
-    sys.stdout.write('.')
-    sys.stdout.flush()
+  with open(filename, 'wb') as f:
+    while True:
+      block = response.read(102400)
+      if not block: break
+      f.write(block)
+      sys.stdout.write('.')
+      sys.stdout.flush()
 
   print('done')
-  f.close()
+
+  if os.path.getsize(filename) < 1024:
+    print('Error: downloaded firmware file is too small (possibly corrupt)')
+    return
 
   if args.test: return
 
@@ -226,7 +229,10 @@ def update_firmware(cat, version):
   print('- network connection is reliable (prefer wired connection to WLAN)')
   print('- power is reliable')
   if not args.yes:
-    input('Press Ctrl-C to prevent upgrade or Enter to continue...')
+    try:
+      input('Press Ctrl-C to prevent upgrade or Enter to continue...')
+    except EOFError:
+      pass
 
   # Upload firmware to printer
   print('Now uploading firmware to printer (DO NOT REMOVE POWER!)...')
@@ -237,7 +243,8 @@ def update_firmware(cat, version):
     try:
       with socket.socket(ai[0], ai[1], ai[2]) as sock:
         sock.connect(ai[4])
-        sock.sendfile(open(filename, 'rb'))
+        with open(filename, 'rb') as fw:
+          sock.sendfile(fw)
 
     except OSError as e:
       print('Firmware update aborted due to error while uploading')
@@ -245,7 +252,8 @@ def update_firmware(cat, version):
   else:
     try:
       ftp = FTP(args.ip, user = args.password) # Yes send password as user
-      ftp.storbinary('STOR ' + filename, open(filename, 'rb'))
+      with open(filename, 'rb') as fw:
+        ftp.storbinary('STOR ' + filename, fw)
       ftp.quit()
     except ConnectionRefusedError as e:
       print('Firmware update aborted due to connection refused')
@@ -254,7 +262,10 @@ def update_firmware(cat, version):
   print()
   print('Wait for printer to finish updating and reboot before continuing.')
   if not args.yes:
-    input('Press Enter to continue...')
+    try:
+      input('Press Enter to continue...')
+    except EOFError:
+      pass
 
 
 def main():
@@ -268,7 +279,10 @@ def main():
       print('  - FTP service is enabled (for uploading firmware)')
       print('  - an administrator password is set (for connecting to FTP)')
     if not args.yes:
-        input('Press Ctrl-C to exit or Enter to continue...')
+        try:
+            input('Press Ctrl-C to exit or Enter to continue...')
+        except EOFError:
+            pass
 
     # Get SNMP data
     print('Getting SNMP data from printer at %s...' % args.ip)
