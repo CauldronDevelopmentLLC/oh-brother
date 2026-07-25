@@ -244,7 +244,7 @@ class TestCLI:
     @pytest.mark.parametrize("args_str,attr,expected", [
         # String args (defaults)
         ("1.2.3.4", "community", "public"),
-        ("1.2.3.4", "version", "B0000000000"),
+        ("1.2.3.4", "fw_version", "B0000000000"),
         ("1.2.3.4", "model", None),
         ("1.2.3.4", "category", None),
         ("1.2.3.4", "password", None),
@@ -259,9 +259,9 @@ class TestCLI:
 
     def test_category_with_version(self):
         args = oh.parser.parse_args(
-            "--category SUB1 --version 2.00 1.2.3.4".split())
+            "--category SUB1 --fw-version 2.00 1.2.3.4".split())
         assert args.category == "SUB1"
-        assert args.version == "2.00"
+        assert args.fw_version == "2.00"
 
     def test_ip_required(self):
         with pytest.raises(SystemExit):
@@ -270,6 +270,17 @@ class TestCLI:
     def test_parser_accessible(self):
         """Module-level parser is importable."""
         assert hasattr(oh, "parser")
+
+
+# ---------------------------------------------------------------------------
+# Global state reset fixture
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def reset_global_state(monkeypatch):
+    """Reset oh module globals between tests to prevent cross-test leakage."""
+    for attr in ("args", "model", "spec", "serial", "firmInfo"):
+        monkeypatch.setattr(oh, attr, None, raising=False)
 
 
 # ---------------------------------------------------------------------------
@@ -343,7 +354,7 @@ class TestMainSmoke:
         monkeypatch.setattr(oh, "walkCmd", fake_walkCmd)
         monkeypatch.setattr(
             "sys.argv",
-            ["oh-brother.py", "--category", "SUB1", "--version", "3.00", "1.2.3.4"],
+            ["oh-brother.py", "--category", "SUB1", "--fw-version", "3.00", "1.2.3.4"],
         )
         oh.main()
 
@@ -360,7 +371,7 @@ class TestMainSmoke:
 
         monkeypatch.setattr(oh, "walkCmd", fake_walkCmd)
         monkeypatch.setattr("sys.argv", ["oh-brother.py", "1.2.3.4"])
-        with pytest.raises(Exception, match="SNMP timeout"):
+        with pytest.raises(SystemExit):
             oh.main()
 
     def test_main_snmp_status_raises(self, monkeypatch):
@@ -375,7 +386,7 @@ class TestMainSmoke:
 
         monkeypatch.setattr(oh, "walkCmd", fake_walkCmd)
         monkeypatch.setattr("sys.argv", ["oh-brother.py", "1.2.3.4"])
-        with pytest.raises(Exception):
+        with pytest.raises(SystemExit):
             oh.main()
 
 
@@ -404,7 +415,7 @@ class TestUpdateFirmware:
         monkeypatch.setattr(oh.urllib.request, "urlopen", lambda req, timeout=None: mock_response)
 
         result = oh.update_firmware("MAIN", "1.24")
-        assert result is None
+        assert result is False
 
     def test_no_path_returns_none(self, monkeypatch):
         """No PATH element → prints message and returns None."""
@@ -434,7 +445,7 @@ class TestUpdateFirmware:
         monkeypatch.setattr(oh.urllib.request, "urlopen", lambda req, timeout=None: mock_response)
 
         result = oh.update_firmware("MAIN", "1.24")
-        assert result is None
+        assert result is False
 
     @pytest.mark.skip(reason="update_firmware HTTP mocking needs deeper integration — real urlopen intercepts")
     def test_test_flag_stops_before_upload(self, monkeypatch, tmp_path):
@@ -475,7 +486,7 @@ class TestUpdateFirmware:
         monkeypatch.chdir(tmp_path)
 
         result = oh.update_firmware("MAIN", "1.24")
-        assert result is None
+        assert result is False
 
     def test_yes_skips_prompts(self, monkeypatch):
         """--yes flag skips all input() prompts."""

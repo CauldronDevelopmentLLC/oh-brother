@@ -69,7 +69,7 @@ def parse_snmp_table(table, verbose=False):
     model = None
     spec = None
     firmId = None
-    firmwares = []
+    firmwares = {}
     
     for row in table:
         for name, value in row:
@@ -86,9 +86,14 @@ def parse_snmp_table(table, verbose=False):
                 if name == 'FIRMID':
                     firmId = value
                 if name == 'FIRMVER' and firmId and value:
-                    firmwares.append({'cat': firmId, 'version': value})
+                    firmwares[firmId] = {'cat': firmId, 'version': value}
     
-    return {'serial': serial, 'model': model, 'spec': spec, 'firmwares': firmwares}
+    return {
+        'serial': serial,
+        'model': model,
+        'spec': spec,
+        'firmwares': list(firmwares.values()),
+    }
 
 
 def build_firmware_xml(model, spec, category, version, beta=False):
@@ -124,7 +129,10 @@ def parse_brother_response(xml_bytes):
     """
     import xml.etree.ElementTree as ET
     
-    xml = ET.fromstring(xml_bytes)
+    try:
+        xml = ET.fromstring(xml_bytes)
+    except ET.ParseError as e:
+        return {'version_check': None, 'firmware_url': None, 'parse_error': str(e)}
     
     version_check = xml.find('FIRMUPDATEINFO/VERSIONCHECK')
     version_check = version_check.text if version_check is not None else None
@@ -149,7 +157,7 @@ parser.add_argument('-m', '--model',
                     help = 'Force a specific printer model')
 parser.add_argument('-C', '--community', default = 'public',
                     help = 'SNMP community (default: %(default)s)')
-parser.add_argument('-f', '--version', default = 'B0000000000',
+parser.add_argument('-f', '--fw-version', default = 'B0000000000',
                     help = 'Force a specific firmware version, must be used '
                     'with --category')
 parser.add_argument('-t', '--test', action = 'store_true',
@@ -162,6 +170,12 @@ parser.add_argument('-p', '--password',
                     '(default is passwordless upload via TCP port 9100)')
 parser.add_argument('-y', '--yes', action = 'store_true',
                     help = 'Skip all confirmation prompts (non-interactive mode)')
+
+
+def prompt(msg):
+    """Show a prompt if stdin is a TTY; otherwise silently skip."""
+    if sys.stdin.isatty():
+        input(msg)
 
 
 def update_firmware(cat, version):
@@ -192,10 +206,10 @@ def update_firmware(cat, version):
   result = parse_brother_response(response)
   if result['version_check'] == '1':
     print('Firmware already up to date')
-    return
+    return False
   if result['firmware_url'] is None:
     print('No firmware update info path found')
-    return
+    return False
   firmwareURL = result['firmware_url']
   filename = firmwareURL.split('/')[-1]
 
@@ -218,9 +232,12 @@ def update_firmware(cat, version):
 
   if os.path.getsize(filename) < 1024:
     print('Error: downloaded firmware file is too small (possibly corrupt)')
-    return
+    os.remove(filename)
+    return False
 
-  if args.test: return
+  if args.test:
+    os.remove(filename)
+    return False
 
   print('About to upload the firmware to printer.')
   print('This is a dangerous action since it is potentially destructive.')
@@ -229,15 +246,13 @@ def update_firmware(cat, version):
   print('- network connection is reliable (prefer wired connection to WLAN)')
   print('- power is reliable')
   if not args.yes:
-    try:
-      input('Press Ctrl-C to prevent upgrade or Enter to continue...')
-    except EOFError:
-      pass
+    prompt('Press Ctrl-C to prevent upgrade or Enter to continue...')
 
   # Upload firmware to printer
   print('Now uploading firmware to printer (DO NOT REMOVE POWER!)...')
   sys.stdout.flush()
 
+  success = False
   if args.password is None:
     ai = socket.getaddrinfo(args.ip, 9100, proto=socket.SOL_TCP)[0]
     try:
@@ -245,6 +260,7 @@ def update_firmware(cat, version):
         sock.connect(ai[4])
         with open(filename, 'rb') as fw:
           sock.sendfile(fw)
+      success = True
 
     except OSError as e:
       print('Firmware update aborted due to error while uploading')
@@ -255,95 +271,112 @@ def update_firmware(cat, version):
       with open(filename, 'rb') as fw:
         ftp.storbinary('STOR ' + filename, fw)
       ftp.quit()
-    except ConnectionRefusedError as e:
-      print('Firmware update aborted due to connection refused')
+      success = True
+    except Exception as e:
+      print('Firmware update aborted due to error while uploading')
+      print(e)
+
+  os.remove(filename)
+
+  if not success:
+    return False
 
   print('done')
   print()
   print('Wait for printer to finish updating and reboot before continuing.')
   if not args.yes:
-    try:
-      input('Press Enter to continue...')
-    except EOFError:
-      pass
+    prompt('Press Enter to continue...')
+
+  return True
 
 
 def main():
     global args, serial, model, spec, firmInfo
-    args = parser.parse_args()
 
-    # Provide information about requirements
-    print('You may need to check the following in the printer\'s configuration:')
-    print('  - SNMP service is enabled (for fetching model and versions)')
-    if args.password:
-      print('  - FTP service is enabled (for uploading firmware)')
-      print('  - an administrator password is set (for connecting to FTP)')
-    if not args.yes:
-        try:
-            input('Press Ctrl-C to exit or Enter to continue...')
-        except EOFError:
-            pass
+    try:
+        args = parser.parse_args()
 
-    # Get SNMP data
-    print('Getting SNMP data from printer at %s...' % args.ip)
-    sys.stdout.flush()
+        # Provide information about requirements
+        print('You may need to check the following in the printer\'s configuration:')
+        print('  - SNMP service is enabled (for fetching model and versions)')
+        if args.password:
+          print('  - FTP service is enabled (for uploading firmware)')
+          print('  - an administrator password is set (for connecting to FTP)')
+        if not args.yes:
+            prompt('Press Ctrl-C to exit or Enter to continue...')
 
-    table = []
-    for errorIndication, errorStatus, errorIndex, varBinds in walkCmd(
-        SnmpEngine(),
-        CommunityData(args.community),
-        UdpTransportTarget((args.ip, 161), timeout=30),
-        ContextData(),
-        ObjectType(ObjectIdentity('1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')),
-        lexicographicMode=False,
-    ):
-        if errorIndication:
-            raise Exception(errorIndication)
-        if errorStatus:
-            raise Exception('ERROR: %s at %s' % (
-                errorStatus.prettyPrint(),
-                errorIndex and varBinds[int(errorIndex) - 1] or '?'))
-        row = []
-        for varBind in varBinds:
-            oid = str(varBind[0])
-            val = str(varBind[1]) if varBind[1] is not None else ''
-            row.append((oid, val))
-        table.append(row)
+        # Get SNMP data
+        print('Getting SNMP data from printer at %s...' % args.ip)
+        sys.stdout.flush()
 
-    print('done')
+        table = []
+        for errorIndication, errorStatus, errorIndex, varBinds in walkCmd(
+            SnmpEngine(),
+            CommunityData(args.community),
+            UdpTransportTarget((args.ip, 161), timeout=30),
+            ContextData(),
+            ObjectType(ObjectIdentity('1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')),
+            lexicographicMode=False,
+        ):
+            if errorIndication:
+                print(errorIndication, file=sys.stderr)
+                sys.exit(1)
+            if errorStatus:
+                print('ERROR: %s at %s' % (
+                    errorStatus.prettyPrint(),
+                    errorIndex and varBinds[int(errorIndex) - 1] or '?'),
+                    file=sys.stderr)
+                sys.exit(1)
+            row = []
+            for varBind in varBinds:
+                oid = str(varBind[0])
+                val = str(varBind[1]) if varBind[1] is not None else ''
+                row.append((oid, val))
+            table.append(row)
 
-    # Process SNMP data
-    info = parse_snmp_table(table, verbose=args.verbose)
-    serial = info['serial']
-    model = info['model']
-    spec = info['spec']
-    firmInfo = info['firmwares']
+        print('done')
 
-    # Override model
-    if args.model: model = args.model
+        # Process SNMP data
+        info = parse_snmp_table(table, verbose=args.verbose)
+        serial = info['serial']
+        model = info['model']
+        spec = info['spec']
+        firmInfo = info['firmwares']
 
-    # Override category and version
-    if args.category:
-      firmInfo = [{'cat': args.category, 'version': args.version}]
+        # Override model
+        if args.model: model = args.model
 
-    # Print SNMP info
-    print()
-    print('    serial =', serial)
-    print('     model =', model)
-    print('      spec =', spec)
-    print('   firmwares')
+        # Override category and version
+        if args.category:
+          firmInfo = [{'cat': args.category, 'version': args.fw_version}]
 
-    for entry in firmInfo:
-      print('    category = %(cat)s, version = %(version)s' % entry)
+        # Print SNMP info
+        print()
+        print('    serial =', serial)
+        print('     model =', model)
+        print('      spec =', spec)
+        print('   firmwares')
 
-    print()
+        for entry in firmInfo:
+          print('    category = %(cat)s, version = %(version)s' % entry)
 
-    for entry in firmInfo:
-      print()
-      update_firmware(entry['cat'], entry['version'])
+        print()
 
-    print()
-    print('Success')
+        updated = False
+        for entry in firmInfo:
+          print()
+          if update_firmware(entry['cat'], entry['version']):
+            updated = True
+
+        print()
+        if updated:
+            print('Firmware update completed')
+        else:
+            print('No firmware update was needed')
+
+    except Exception as e:
+        print(e, file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
