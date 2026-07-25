@@ -58,7 +58,7 @@ Module is import-safe: `if __name__ == '__main__':` guard at line 339.
 
 ## Code conventions
 
-- **Python 3.10+** runtime
+- **Python 3.13** (3.10 compatible but untested)
 - **Procedural style** — pure functions extracted, no classes
 - **No external HTTP libraries** — stdlib `urllib` only
 - **XML parsing** — stdlib `xml.etree.ElementTree`
