@@ -178,6 +178,27 @@ def prompt(msg):
         input(msg)
 
 
+def _decrement_version(version_str):
+    """Decrement the minor version number for API fallback.
+    
+    When the API returns VCHECK=1 (already current), retrying with
+    an older version forces it to return the current firmware PATH.
+    Example: '1.24' -> '1.23', '2.10' -> '2.09'.
+    
+    Returns: str or None if version can't be parsed/decremented.
+    """
+    try:
+        parts = version_str.split('.')
+        if len(parts) >= 2:
+            minor = int(parts[1])
+            if minor > 0:
+                parts[1] = str(minor - 1)
+                return '.'.join(parts)
+    except (ValueError, IndexError):
+        pass
+    return None
+
+
 def update_firmware(cat, version):
   global args
 
@@ -206,11 +227,48 @@ def update_firmware(cat, version):
   result = parse_brother_response(response)
   if result['version_check'] == '1':
     print('Firmware already up to date')
-    return False
-  if result['firmware_url'] is None:
-    print('No firmware update info path found')
-    return False
-  firmwareURL = result['firmware_url']
+    # Try version fallback: newer Brother printers return no PATH when
+    # already current. Sending an older version forces the API to return
+    # the PATH for the current firmware (useful for backup/download).
+    fallback_ver = _decrement_version(version)
+    if fallback_ver:
+      if args.verbose:
+        print('Retrying with version %s to get firmware URL...' % fallback_ver)
+      fallback_req = build_firmware_xml(model, spec, cat, fallback_ver, beta=args.beta)
+      req2 = urllib.request.Request(url, fallback_req, hdrs)
+      resp2 = urllib.request.urlopen(req2, timeout=30)
+      resp2 = resp2.read()
+      if args.verbose: print('fallback response: %s' % resp2)
+      result2 = parse_brother_response(resp2)
+      if result2['firmware_url']:
+        firmwareURL = result2['firmware_url']
+        print('Found firmware URL via version fallback')
+      else:
+        return False
+    else:
+      return False
+  elif result['firmware_url'] is None:
+    print('No firmware update info path found '
+          '(newer Brother models require version fallback)')
+    fallback_ver = _decrement_version(version)
+    if fallback_ver:
+      if args.verbose:
+        print('Retrying with version %s to get firmware URL...' % fallback_ver)
+      fallback_req = build_firmware_xml(model, spec, cat, fallback_ver, beta=args.beta)
+      req2 = urllib.request.Request(url, fallback_req, hdrs)
+      resp2 = urllib.request.urlopen(req2, timeout=30)
+      resp2 = resp2.read()
+      if args.verbose: print('fallback response: %s' % resp2)
+      result2 = parse_brother_response(resp2)
+      if result2['firmware_url']:
+        firmwareURL = result2['firmware_url']
+        print('Found firmware URL via version fallback')
+      else:
+        return False
+    else:
+      return False
+  else:
+    firmwareURL = result['firmware_url']
   filename = firmwareURL.split('/')[-1]
 
   # Download firmware

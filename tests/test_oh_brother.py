@@ -509,3 +509,98 @@ class TestUpdateFirmware:
 
         oh.update_firmware("MAIN", "1.24")
         assert len(input_calls) == 0
+
+    def test_vcheck1_fallback_succeeds(self, monkeypatch):
+        """VCHECK=1 with fallback → retries with decremented version, gets PATH."""
+        from unittest.mock import MagicMock
+        from types import SimpleNamespace
+
+        oh.args = SimpleNamespace(
+            beta=False, verbose=False, test=True, yes=True,
+            ip="1.2.3.4", password=None,
+        )
+        oh.model = "HL-L2865DW"
+        oh.spec = "0906"
+
+        xml_update = (
+            b'<?xml version="1.0" encoding="UTF-8" ?>'
+            b'<RESPONSEINFO>'
+            b'<FIRMUPDATEINFO>'
+            b'<VERSIONCHECK>0</VERSIONCHECK>'
+            b'<PATH>http://update-akamai.brother.co.jp/CS/D02FZM_124Q_crypt.djf</PATH>'
+            b'</FIRMUPDATEINFO>'
+            b'</RESPONSEINFO>'
+        )
+
+        call_count = [0]
+
+        def mock_urlopen(req, timeout=None):
+            call_count[0] += 1
+            m = MagicMock()
+            if call_count[0] == 1:
+                # First call: up to date (VCHECK=1, no PATH)
+                m.read.return_value = REAL_BROTHER_RESPONSE_UP_TO_DATE
+            elif call_count[0] == 2:
+                # Second call: fallback with decremented version → PATH
+                m.read.return_value = xml_update
+            else:
+                # Third call: firmware download — return data then empty
+                m.read.side_effect = [b"\x00" * 2048, b""]
+            return m
+
+        monkeypatch.setattr(oh.urllib.request, "urlopen", mock_urlopen)
+        monkeypatch.setattr("builtins.input", lambda _=None: None)
+        monkeypatch.chdir("/tmp")
+
+        result = oh.update_firmware("MAIN", "1.24")
+        assert result is False  # --test mode, no upload
+        assert call_count[0] >= 2  # At least first call + fallback
+
+    def test_vcheck1_fallback_fails(self, monkeypatch):
+        """VCHECK=1, fallback also returns VCHECK=1 → gives up."""
+        from unittest.mock import MagicMock
+        from types import SimpleNamespace
+
+        oh.args = SimpleNamespace(
+            beta=False, verbose=False, test=False, yes=True,
+            ip="1.2.3.4", password=None,
+        )
+        oh.model = "HL-L2865DW"
+        oh.spec = "0906"
+
+        call_count = [0]
+
+        def mock_urlopen(req, timeout=None):
+            call_count[0] += 1
+            m = MagicMock()
+            m.read.return_value = REAL_BROTHER_RESPONSE_UP_TO_DATE
+            return m
+
+        monkeypatch.setattr(oh.urllib.request, "urlopen", mock_urlopen)
+        monkeypatch.setattr("builtins.input", lambda _=None: None)
+
+        result = oh.update_firmware("MAIN", "1.24")
+        assert result is False
+        assert call_count[0] == 2  # Original + fallback, both VCHECK=1
+
+
+# ---------------------------------------------------------------------------
+# _decrement_version
+# ---------------------------------------------------------------------------
+
+class TestDecrementVersion:
+    def test_normal_version(self):
+        assert oh._decrement_version("1.24") == "1.23"
+
+    def test_zero_minor(self):
+        """Minor version 0 — can't decrement further."""
+        assert oh._decrement_version("1.00") is None
+
+    def test_three_part_version(self):
+        assert oh._decrement_version("2.10.5") == "2.9.5"
+
+    def test_non_numeric(self):
+        assert oh._decrement_version("abc") is None
+
+    def test_empty(self):
+        assert oh._decrement_version("") is None
