@@ -56,18 +56,26 @@ reqInfo = '''
 '''
 
 # Parse args
-usage = '%(prog)s [OPTIONS] <printer IP address>'
+usage = '%(prog)s [OPTIONS] [printer IP address]'
 description = 'A platform independent tool for updating Brother firmwares'
 
 parser = argparse.ArgumentParser(usage = usage, description = description)
 
-parser.add_argument('ip', metavar = 'IP', help = 'printer IP address')
+parser.add_argument('ip', metavar = 'IP', nargs = '?',
+                    help = 'printer IP address '
+                           '(optional when using --download-only)')
 parser.add_argument('-v', '--verbose', action = 'store_true',
                     help = 'Verbose output')
 parser.add_argument('-c', '--category',
                     help = 'Force a specific firmware category')
 parser.add_argument('-m', '--model',
                     help = 'Force a specific printer model')
+parser.add_argument('-S', '--spec',
+                    help = 'Force a specific SPEC value (required when no '
+                           'printer IP address is given)')
+parser.add_argument('--download-only', action = 'store_true',
+                    help = 'Only download the firmware file, do not upload '
+                           'it to the printer')
 parser.add_argument('-C', '--community', default = 'public',
                     help = 'SNMP community (default: %(default)s)')
 parser.add_argument('-f', '--version', default = 'B0000000000',
@@ -85,56 +93,73 @@ parser.add_argument('-p', '--password',
 args = parser.parse_args()
 
 # Provide information about requirements
-print('You may need to check the following in the printer\'s configuration:')
-print('  - SNMP service is enabled (for fetching model and versions)')
-if args.password:
-  print('  - FTP service is enabled (for uploading firmware)')
-  print('  - an administrator password is set (for connecting to FTP)')
-input('Press Ctrl-C to exit or Enter to continue...')
+if args.ip:
+  print('You may need to check the following in the printer\'s configuration:')
+  print('  - SNMP service is enabled (for fetching model and versions)')
+  if args.password:
+    print('  - FTP service is enabled (for uploading firmware)')
+    print('  - an administrator password is set (for connecting to FTP)')
+  input('Press Ctrl-C to exit or Enter to continue...')
+
+# When there is no printer to query, the model and SPEC have to be given
+# explicitly.
+if args.ip is None:
+  if not (args.model and args.spec):
+    parser.error('--model and --spec are required when no printer IP '
+                 'address is given')
 
 # Get SNMP data
-print('Getting SNMP data from printer at %s...' % args.ip)
-sys.stdout.flush()
-
-cg = cmdgen.CommandGenerator()
-error, status, index, table = cg.nextCmd(
-  cmdgen.CommunityData(args.community),
-  cmdgen.UdpTransportTarget((args.ip, 161)),
-  '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
-
-print('done')
-
-if error: raise Exception(error)
-if status:
-  raise Exception('ERROR: %s at %s' % (
-    status.prettyPrint(), index and table[-1][int(index) - 1] or '?'))
-
-# Process SNMP data
 serial   = None
 model    = None
 spec     = None
-firmId   = None
 firmInfo = []
 
-if args.verbose: print(table)
+if args.ip:
+  print('Getting SNMP data from printer at %s...' % args.ip)
+  sys.stdout.flush()
 
-for row in table:
-  for name, value in row:
-    value = str(value)
+  cg = cmdgen.CommandGenerator()
+  error, status, index, table = cg.nextCmd(
+    cmdgen.CommunityData(args.community),
+    cmdgen.UdpTransportTarget((args.ip, 161)),
+    '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
 
-    if value.find('=') != -1:
-      name, value = value.split('=')
-      value = value.strip(' "\r\n')
+  print('done')
 
-      if name == 'MODEL':  model  = value
-      if name == 'SERIAL': serial = value
-      if name == 'SPEC':   spec   = value
-      if name == 'FIRMID': firmId = value
-      if name == 'FIRMVER' and firmId and value:
-        firmInfo.append({'cat': firmId, 'version': value})
+  if error: raise Exception(error)
+  if status:
+    raise Exception('ERROR: %s at %s' % (
+      status.prettyPrint(), index and table[-1][int(index) - 1] or '?'))
+
+  # Process SNMP data
+  serial   = None
+  model    = None
+  spec     = None
+  firmId   = None
+  firmInfo = []
+
+  if args.verbose: print(table)
+
+  for row in table:
+    for name, value in row:
+      value = str(value)
+
+      if value.find('=') != -1:
+        name, value = value.split('=')
+        value = value.strip(' "\r\n')
+
+        if name == 'MODEL':  model  = value
+        if name == 'SERIAL': serial = value
+        if name == 'SPEC':   spec   = value
+        if name == 'FIRMID': firmId = value
+        if name == 'FIRMVER' and firmId and value:
+          firmInfo.append({'cat': firmId, 'version': value})
 
 # Override model
 if args.model: model = args.model
+
+# Override SPEC
+if args.spec: spec = args.spec
 
 # Override category and version
 if args.category:
@@ -222,10 +247,28 @@ def update_firmware(cat, version):
   xml = ET.fromstring(response)
 
   # Check version
+  # VERSIONCHECK semantics (verified against the vendor server):
+  #   0 = update available (PATH holds the download URL)
+  #   1 = already up to date
+  #   2 = invalid model name, wrong SPEC, or missing device context
+  #   empty <RESPONSEINFO/> = request not recognized
   versionCheck = xml.find('FIRMUPDATEINFO/VERSIONCHECK')
-  if versionCheck is not None and versionCheck.text == '1':
-    print('Firmware already up to date')
-    return
+  if versionCheck is not None:
+    if versionCheck.text == '1':
+      print('Firmware already up to date')
+      return
+    if versionCheck.text == '2':
+      print('ERROR: the vendor server rejected the model/SPEC combination.')
+      print('Check that --model matches the exact model name and --spec is')
+      print('correct for this printer. Without a printer, the SPEC can be')
+      print('read from the device with:')
+      print('  snmpget -v1 -c public <printer-ip> '\
+            '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
+      return
+
+  latestVersion = xml.find('FIRMUPDATEINFO/LATESTVERSION')
+  if latestVersion is not None and latestVersion.text:
+    print('Latest firmware version: %s' % latestVersion.text)
 
   # Get firmware URL
   firmwareURL = xml.find('FIRMUPDATEINFO/PATH')
@@ -255,7 +298,9 @@ def update_firmware(cat, version):
   print('done')
   f.close()
 
-  if args.test: return
+  if args.test or args.download_only:
+    print('Firmware downloaded to %s' % filename)
+    return
 
   print('About to upload the firmware to printer.')
   print('This is a dangerous action since it is potentially destructive.')

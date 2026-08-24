@@ -77,6 +77,31 @@ Try specifying ``--category`` on the command line.  E.g.:
 This will force the script to update a specific firmware regardless of the
 version you currently have.
 
+## Download firmware without the printer
+
+The vendor's update server resolves the firmware image from model and SPEC
+alone, so the tool can download the image without a printer being present
+on the network:
+
+    ./oh-brother.py --download-only -m "Brother HL-L2375DW series" -S <SPEC> -c MAIN -f 1.77
+
+``--model`` and ``--spec`` are required in this mode.  SPEC is a per
+model/region code; if you do have the printer reachable, read it via
+SNMP instead:
+
+    snmpget -v1 -c public <printer-ip> 1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2
+
+Note that the version passed with ``-f`` should be a real lower version
+currently installed (e.g. ``1.77``); placeholder values such as ``0`` or
+``1.0`` are rejected by the vendor server with a ``VERSIONCHECK=2``
+response.
+
+If the server rejects the model/SPEC combination, the tool now prints a
+clear error instead of exiting silently.  On models with an NC-9300h
+network card, the SNMP agent lives on the network card and expects the
+community ``public``; unknown communities are silently dropped, which
+looks like a timeout.
+
 ## Submit a PR
 Please feel free to submit a pull-request.
 
