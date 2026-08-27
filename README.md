@@ -85,7 +85,7 @@ on the network:
 
     ./oh-brother.py --download-only -m "Brother HL-L2375DW series" -S <SPEC> -c MAIN -f 1.77
 
-``--model`` and ``--spec`` are required in this mode.  SPEC is a per
+``--model``, ``--spec`` and ``--category`` are required in this mode.  SPEC is a per
 model/region code; if you do have the printer reachable, read it via
 SNMP instead:
 
