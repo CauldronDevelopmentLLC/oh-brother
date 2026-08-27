@@ -92,26 +92,26 @@ parser.add_argument('-p', '--password',
 
 args = parser.parse_args()
 
+# Without a printer to query, everything the vendor server needs must be given
+if args.ip is None and not (args.download_only and args.model and args.spec
+                            and args.category):
+  parser.error('--download-only, --model, --spec and --category are required '
+               'when no printer IP address is given')
+
 # Provide information about requirements
 if args.ip:
   print('You may need to check the following in the printer\'s configuration:')
   print('  - SNMP service is enabled (for fetching model and versions)')
-  if args.password:
+  if args.password and not args.download_only:
     print('  - FTP service is enabled (for uploading firmware)')
     print('  - an administrator password is set (for connecting to FTP)')
   input('Press Ctrl-C to exit or Enter to continue...')
-
-# When there is no printer to query, the model and SPEC have to be given
-# explicitly.
-if args.ip is None:
-  if not (args.model and args.spec):
-    parser.error('--model and --spec are required when no printer IP '
-                 'address is given')
 
 # Get SNMP data
 serial   = None
 model    = None
 spec     = None
+firmId   = None
 firmInfo = []
 
 if args.ip:
@@ -132,12 +132,6 @@ if args.ip:
       status.prettyPrint(), index and table[-1][int(index) - 1] or '?'))
 
   # Process SNMP data
-  serial   = None
-  model    = None
-  spec     = None
-  firmId   = None
-  firmInfo = []
-
   if args.verbose: print(table)
 
   for row in table:
@@ -259,11 +253,10 @@ def update_firmware(cat, version):
       return
     if versionCheck.text == '2':
       print('ERROR: the vendor server rejected the model/SPEC combination.')
-      print('Check that --model matches the exact model name and --spec is')
-      print('correct for this printer. Without a printer, the SPEC can be')
-      print('read from the device with:')
-      print('  snmpget -v1 -c public <printer-ip> '\
-            '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
+      print('Check --model and --spec.  SPEC can be read from a reachable')
+      print('printer with:')
+      print('  snmpget -v1 -c %s <printer-ip> '
+            '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2' % args.community)
       return
 
   latestVersion = xml.find('FIRMUPDATEINFO/LATESTVERSION')
