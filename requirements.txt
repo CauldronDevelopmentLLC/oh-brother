@@ -1,10 +1,22 @@
-# oh-brother uses the `pysnmp.entity.rfc3413.oneliner` module, which was
-# removed in v6.2 (see https://github.com/lextudio/pysnmp/compare/v6.1.4..v6.2).
-# So v6.1.4 is the highest version of PySNMP that we can currently use.
+# oh-brother works with either the legacy `pysnmp.entity.rfc3413.oneliner`
+# API (removed in v6.2, see
+# https://github.com/lextudio/pysnmp/compare/v6.1.4..v6.2) or the modern
+# `pysnmp.hlapi.asyncio` API, which is available from v7.1.6 on and requires
+# Python >= 3.9.
+#
+# PySNMP 6.2.x through 7.1.5 provide neither API: `cmdgen` is gone and their
+# asyncio API still uses the old `walkCmd` spelling, so those releases are
+# excluded.
 #
 # Additionally, Python 3.12 completely removes the `asyncore` module from
 # the standard library, so PySNMP versions older than 6.x do not work with
 # it.
 
-pysnmp >= 4, <= 6.1.4 ; python_version < "3.12"
-pysnmp >= 6, <= 6.1.4 ; python_version >= "3.12"
+# Python < 3.9 can only use the legacy API
+pysnmp >= 4, <= 6.1.4 ; python_version < "3.9"
+
+# Python 3.9 - 3.11: either the legacy range or >= 7.1.6
+pysnmp >= 4, != 6.2.2, != 6.2.3, != 6.2.4, != 6.2.5, != 6.2.6, != 7.0.0, != 7.0.1, != 7.0.2, != 7.0.3, != 7.0.4, != 7.1.0, != 7.1.1, != 7.1.2, != 7.1.3, != 7.1.4, != 7.1.5 ; python_version >= "3.9" and python_version < "3.12"
+
+# Python >= 3.12 cannot use PySNMP < 6; either the legacy range or >= 7.1.6
+pysnmp >= 6, != 6.2.2, != 6.2.3, != 6.2.4, != 6.2.5, != 6.2.6, != 7.0.0, != 7.0.1, != 7.0.2, != 7.0.3, != 7.0.4, != 7.1.0, != 7.1.1, != 7.1.2, != 7.1.3, != 7.1.4, != 7.1.5 ; python_version >= "3.12"

@@ -14,7 +14,24 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from pysnmp.entity.rfc3413.oneliner import cmdgen
+import asyncio
+
+try:
+  from pysnmp.hlapi.asyncio import (
+    SnmpEngine, CommunityData, UdpTransportTarget, ContextData,
+    next_cmd, Null, EndOfMibView
+  )
+  from pysnmp.proto.rfc1902 import ObjectName
+  HAVE_MODERN_API = True
+except (ImportError, AttributeError):
+  # PySNMP 4.x's `pysnmp.hlapi.asyncio` fails to import with AttributeError
+  # rather than ImportError on Python >= 3.11, because its transport layer
+  # uses `asyncio.coroutine`, which was removed from the standard library.
+  # Debian 12's `python3-pysnmp4` (4.4.12 on Python 3.11) hits exactly this,
+  # so both exception types must fall back to the legacy API.
+  from pysnmp.entity.rfc3413.oneliner import cmdgen
+  HAVE_MODERN_API = False
+
 import urllib.request, urllib.error, urllib.parse
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
@@ -25,6 +42,80 @@ from ftplib import FTP
 import ssl
 import getpass
 from functools import wraps
+
+
+# Get the SNMP table, using the modern PySNMP API when it is available and
+# falling back to the legacy `cmdgen` API otherwise
+def get_snmp_table(ip, community):
+  oid = '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2'
+
+  if HAVE_MODERN_API:
+    # `walk_cmd()` on PySNMP 7.1.6 ends the walk without reporting a PDU
+    # error, which would silently turn a failed walk into an empty table.
+    # Walk with `next_cmd()` instead so PDU errors are reported like they
+    # are on the legacy `cmdgen` path below
+    async def _walk():
+      target = await UdpTransportTarget.create((ip, 161))
+      engine = SnmpEngine()
+      initial = name = ObjectName(oid)
+      table = []
+
+      while True:
+        errorIndication, errorStatus, errorIndex, varBindTable = await next_cmd(
+          engine,
+          CommunityData(community),
+          target,
+          ContextData(),
+          (name, Null('')),
+          lookupMib = False)
+
+        if errorIndication:
+          raise Exception(errorIndication)
+
+        if errorStatus:
+          # An agent may report noSuchName for a walk that ran past the end
+          # of its MIB.  Both `walk_cmd()` and `cmdgen.nextCmd()` treat that
+          # as the end of the walk instead of an error
+          if errorStatus == 2: break
+
+          # PySNMP replaces the response bindings with an empty tuple when
+          # the PDU reports an error, so there may be nothing to point at
+          index = errorIndex and int(errorIndex)
+          if index and index <= len(varBindTable):
+            at = varBindTable[index - 1]
+          else:
+            at = name
+          raise Exception('ERROR: %s at %s' % (errorStatus.prettyPrint(), at))
+
+        nextName, value = varBindTable[0]
+
+        if isinstance(value, (Null, EndOfMibView)): break
+        if not initial.isPrefixOf(nextName): break
+
+        # Stop rather than looping forever should an agent fail to advance
+        # the walk.  The legacy `cmdgen` path reports this as an error too
+        if name.asTuple() >= nextName.asTuple():
+          raise Exception('OID not increasing: %s' % nextName)
+
+        name = nextName
+        table.append(varBindTable)
+
+      return table
+
+    return asyncio.run(_walk())
+
+  cg = cmdgen.CommandGenerator()
+  error, status, index, table = cg.nextCmd(
+    cmdgen.CommunityData(community),
+    cmdgen.UdpTransportTarget((ip, 161)),
+    oid)
+
+  if error: raise Exception(error)
+  if status:
+    raise Exception('ERROR: %s at %s' % (
+      status.prettyPrint(), index and table[-1][int(index) - 1] or '?'))
+
+  return table
 
 
 # Yes indeed, "SELIALNO"
@@ -118,18 +209,9 @@ if args.ip:
   print('Getting SNMP data from printer at %s...' % args.ip)
   sys.stdout.flush()
 
-  cg = cmdgen.CommandGenerator()
-  error, status, index, table = cg.nextCmd(
-    cmdgen.CommunityData(args.community),
-    cmdgen.UdpTransportTarget((args.ip, 161)),
-    '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2')
+  table = get_snmp_table(args.ip, args.community)
 
   print('done')
-
-  if error: raise Exception(error)
-  if status:
-    raise Exception('ERROR: %s at %s' % (
-      status.prettyPrint(), index and table[-1][int(index) - 1] or '?'))
 
   # Process SNMP data
   if args.verbose: print(table)
