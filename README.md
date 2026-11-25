@@ -102,6 +102,40 @@ network card, the SNMP agent lives on the network card and expects the
 community ``public``; unknown communities are silently dropped, which
 looks like a timeout.
 
+## Label printers (QL series)
+
+QL label printers are not known to the vendor service used for laser and
+inkjet models, which answers ``VERSIONCHECK=2`` for them.  The tool detects
+QL models automatically (or use ``--label-printer`` to force it) and instead
+queries the service used by the vendor's P-touch Update Software.
+
+For label printers the tool only downloads the firmware; it never uploads it.
+It saves the ``.PDZ`` package and extracts the ``.PD3`` firmware image from
+it, ready to be sent with the vendor's tools or SDK:
+
+    ./oh-brother.py --test <printer IP>
+    ./oh-brother.py --download-only -m QL-820NWB -S ALL_USA -c FP-MAIN
+
+The vendor server offers firmware as a sequence of steps rather than jumping
+straight to the newest release: it answers with the next version the printer
+should install (e.g. ``FP-MAIN_01`` goes V0215, then V0219).  Query with the
+version the printer reports and check again after each update.  Without
+``-f`` the tool sends ``V0000``, which returns the first step that is still
+offered, not necessarily the newest firmware.
+
+To only check whether an update exists, without downloading anything, use
+``--check``.  For label printers it also shows the release title, size and
+notes:
+
+    ./oh-brother.py --check <printer IP>
+    ./oh-brother.py --check -m QL-820NWB -S ALL_USA -c FP-MAIN
+
+``--check`` works for laser and inkjet models too.
+
+Printers of the same model can report different firmware categories (e.g. ``FP-MAIN``
+and ``FP-MAIN_01`` for different hardware revisions), each with its own
+firmware line, so read the category from the printer when possible.
+
 ## Submit a PR
 Please feel free to submit a pull-request.
 

@@ -19,8 +19,13 @@ import urllib.request, urllib.error, urllib.parse
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 import argparse
+import io
+import os
+import re
+import shutil
 import sys
 import socket
+import zipfile
 from ftplib import FTP
 import ssl
 import getpass
@@ -55,6 +60,39 @@ reqInfo = '''
 </REQUESTINFO>
 '''
 
+# Label printers (QL series) are not known to the vendor service above, which
+# always answers VERSIONCHECK=2 for them.  They are served by a separate
+# service used by the vendor's "P-touch Update Software", which uses
+# PascalCase tags (and the same "SelialNo" misspelling).  The <OS> value is
+# ignored by the server; WIN matches what the vendor tool sends.
+labelReqInfo = '''
+<RequestInfo>
+  <FirmUpdateToolInfo>
+    <FirmCategory></FirmCategory>
+    <OS>WIN</OS>
+    <Area>ALL</Area>
+    <InspectMode></InspectMode>
+  </FirmUpdateToolInfo>
+  <FirmUpdateInfo>
+    <Model>
+      <SelialNo></SelialNo>
+      <Name></Name>
+      <Spec></Spec>
+      <Firm>
+        <Id></Id>
+        <Version></Version>
+      </Firm>
+    </Model>
+    <DriverCnt>1</DriverCnt>
+    <LogNo>2</LogNo>
+    <NeedResponse>1</NeedResponse>
+  </FirmUpdateInfo>
+</RequestInfo>
+'''
+
+labelUpdateURL = ('https://firmverup.brother.co.jp/'
+                  'KNE_ES_UPDATE_SSL/es_update.asmx/fileUpdate')
+
 # Parse args
 usage = '%(prog)s [OPTIONS] [printer IP address]'
 description = 'A platform independent tool for updating Brother firmwares'
@@ -86,20 +124,28 @@ parser.add_argument('-t', '--test', action = 'store_true',
 parser.add_argument('--beta', action = 'store_true',
                     help = 'Download the latest beta firmware instead of the '
                     'default stable version.')
+parser.add_argument('--check', action = 'store_true',
+                    help = 'Only check whether a firmware update is available '
+                    'and show its version, without downloading or uploading '
+                    'firmware')
+parser.add_argument('--label-printer', action = 'store_true',
+                    help = 'Use the label printer firmware service even if '
+                    'the model is not detected as one (QL models are '
+                    'detected automatically).  Label printer firmware is '
+                    'only downloaded, never uploaded.')
 parser.add_argument('-p', '--password',
                     help = 'Upload firmware via FTP using printer admin password '
                     '(default is passwordless upload via TCP port 9100)')
 
 args = parser.parse_args()
 
-# Without a printer to query, everything the vendor server needs must be given
-if args.ip is None and not (args.download_only and args.model and args.spec
-                            and args.category):
-  parser.error('--download-only, --model, --spec and --category are required '
-               'when no printer IP address is given')
+if args.ip is None and not ((args.download_only or args.check) and args.model
+                            and args.spec and args.category):
+  parser.error('--download-only or --check, plus --model, --spec and '
+               '--category, are required when no printer IP address is given')
 
 # Provide information about requirements
-if args.ip:
+if args.ip and not args.check:
   print('You may need to check the following in the printer\'s configuration:')
   print('  - SNMP service is enabled (for fetching model and versions)')
   if args.password and not args.download_only:
@@ -159,11 +205,34 @@ if args.spec: spec = args.spec
 if args.category:
   firmInfo = [{'cat': args.category, 'version': args.version}]
 
+
+def is_label_model(name):
+  return bool(name and re.match(r'^(Brother\s+)?QL-', name, re.I))
+
+
+def label_model_name(name):
+  # The label service only accepts e.g. "Brother QL-820NWB": the "Brother "
+  # prefix is required and the "_EWS" suffix reported via SNMP is rejected
+  name = re.sub(r'_EWS$', '', name.strip(), flags = re.I)
+  if not name.lower().startswith('brother '): name = 'Brother ' + name
+  return name
+
+
+labelPrinter = args.label_printer or is_label_model(model)
+
+# The label service rejects the generic default version, but accepts any
+# QL-style "Vnnnn" version and answers with the first firmware step offered
+if labelPrinter:
+  for entry in firmInfo:
+    if entry['version'] == parser.get_default('version'):
+      entry['version'] = 'V0000'
+
 # Print SNMP info
 print()
 print('    serial =', serial)
 print('     model =', model)
 print('      spec =', spec)
+if labelPrinter: print('   service = label printer')
 print('   firmwares')
 
 for entry in firmInfo:
@@ -183,6 +252,42 @@ def sslwrap(func):
 
 context = ssl.create_default_context()
 ssl.wrap_socket = sslwrap(context.wrap_socket)
+
+
+def post_firmware_request(url, requestInfo):
+  if args.verbose: print('request: %s' % requestInfo)
+
+  print('Looking up printer firmware info at vendor server...')
+  sys.stdout.flush()
+
+  hdrs = {'Content-Type': 'text/xml', 'User-Agent': 'BrHttpc/1.00'}
+  req = urllib.request.Request(url, requestInfo, hdrs)
+  response = urllib.request.urlopen(req).read()
+
+  print('done')
+
+  if args.verbose: print('response: %s' % response)
+
+  return response
+
+
+def download_file(url, filename):
+  response = urllib.request.urlopen(url)
+
+  with open(filename, 'wb') as f:
+    while True:
+      block = response.read(102400)
+      if not block: break
+      f.write(block)
+      sys.stdout.write('.')
+      sys.stdout.flush()
+
+  print('done')
+
+
+def print_update_available(cat, version, newVersion, url):
+  print('%s: %s -> %s available' % (cat, version, newVersion))
+  print('  firmware: %s' % url)
 
 
 def update_firmware(cat, version):
@@ -219,23 +324,10 @@ def update_firmware(cat, version):
 
   requestInfo = ET.tostring(xml.getroot(), encoding = 'utf8')
 
-  if args.verbose: print('request: %s' % requestInfo)
-
   # Request firmware data
   url = 'https://firmverup.brother.co.jp/'
   url += 'kne_bh7_update_nt_ssl/ifax2.asmx/fileUpdate'
-  hdrs = {'Content-Type': 'text/xml', 'User-Agent': 'BrHttpc/1.00'}
-
-  print('Looking up printer firmware info at vendor server...')
-  sys.stdout.flush()
-
-  req = urllib.request.Request(url, requestInfo, hdrs)
-  response = urllib.request.urlopen(req)
-  response = response.read()
-
-  print('done')
-
-  if args.verbose: print('response: %s' % response)
+  response = post_firmware_request(url, requestInfo)
 
   # Parse response
   xml = ET.fromstring(response)
@@ -259,9 +351,9 @@ def update_firmware(cat, version):
             '1.3.6.1.4.1.2435.2.4.3.99.3.1.6.1.2' % args.community)
       return
 
-  latestVersion = xml.find('FIRMUPDATEINFO/LATESTVERSION')
-  if latestVersion is not None and latestVersion.text:
-    print('Latest firmware version: %s' % latestVersion.text)
+  latestVersion = xml.findtext('FIRMUPDATEINFO/LATESTVERSION')
+  if latestVersion:
+    print('Latest firmware version: %s' % latestVersion)
 
   # Get firmware URL
   firmwareURL = xml.find('FIRMUPDATEINFO/PATH')
@@ -272,24 +364,15 @@ def update_firmware(cat, version):
   firmwareURL = firmwareURL.text
   filename = firmwareURL.split('/')[-1]
 
-  # Download firmware
-  f = open(filename, 'wb')
+  if args.check:
+    print_update_available(cat, version, latestVersion or 'newer version',
+                           firmwareURL)
+    return
 
+  # Download firmware
   print('Downloading firmware file %s from vendor server...' % filename)
   sys.stdout.flush()
-
-  req = urllib.request.Request(firmwareURL)
-  response = urllib.request.urlopen(req)
-
-  while True:
-    block = response.read(102400)
-    if not block: break
-    f.write(block)
-    sys.stdout.write('.')
-    sys.stdout.flush()
-
-  print('done')
-  f.close()
+  download_file(firmwareURL, filename)
 
   if args.test or args.download_only:
     print('Firmware downloaded to %s' % filename)
@@ -330,9 +413,132 @@ def update_firmware(cat, version):
   print('Wait for printer to finish updating and reboot before continuing.')
   input('Press Enter to continue...')
 
+
+def read_label_release_info(prvURL):
+  '''The .PRV is a small zip holding one data_<LANG>.xml descriptor per
+  language plus a thumbnail.'''
+  data = urllib.request.urlopen(prvURL).read()
+
+  with zipfile.ZipFile(io.BytesIO(data)) as prv:
+    names = prv.namelist()
+    lang = next((n for n in ('data_ENU.xml', 'data_ENG.xml') if n in names),
+                None)
+    if lang is None: return None
+
+    info = ET.fromstring(prv.read(lang))
+
+  return {key: (info.findtext(key) or '').strip()
+          for key in ('Title', 'Version', 'Size', 'Description')}
+
+
+def latest_release_notes(description, version):
+  # Description lists "Version x.yy" sections, newest first
+  for section in re.split(r'\n\s*\n(?=Version )', description):
+    if section.startswith('Version %s' % version): return section.strip()
+
+
+def show_label_update(cat, version, prvURL, pdzURL):
+  m = re.search(r'_(V\d+)\.PRV$', prvURL, re.I)
+  newVersion = m.group(1) if m else 'newer version'
+
+  print_update_available(cat, version, newVersion, pdzURL)
+
+  try:
+    info = read_label_release_info(prvURL)
+  except Exception as e:
+    print('  (could not read release info: %s)' % e)
+    return
+
+  if not info: return
+
+  print('  title:    %s' % info['Title'])
+  print('  version:  %s' % info['Version'])
+  print('  size:     %s' % info['Size'])
+
+  notes = latest_release_notes(info['Description'], info['Version'])
+  if notes:
+    print('  release notes:')
+    for line in notes.splitlines(): print('    %s' % line)
+
+
+def update_label_firmware(cat, version):
+  print('Updating %s version %s (label printer service)' % (cat, version))
+
+  xml = ET.fromstring(labelReqInfo)
+
+  toolInfo = xml.find('FirmUpdateToolInfo')
+  toolInfo.find('FirmCategory').text = cat
+  toolInfo.find('InspectMode').text = '1' if args.beta else '0'
+
+  modelInfo = xml.find('FirmUpdateInfo/Model')
+  modelInfo.find('Name').text = label_model_name(model)
+  modelInfo.find('Spec').text = spec
+  modelInfo.find('Firm/Id').text = cat
+  modelInfo.find('Firm/Version').text = version
+
+  requestInfo = ET.tostring(xml, encoding = 'utf8')
+  response = post_firmware_request(labelUpdateURL, requestInfo)
+
+  xml = ET.fromstring(response)
+
+  versionCheck = xml.findtext('FirmUpdateInfo/VersionCheck')
+  if versionCheck == '1':
+    print('Firmware already up to date')
+    return
+  if versionCheck == '2':
+    print('ERROR: the vendor server rejected the model/SPEC/firmware '
+          'combination.')
+    print('This also happens when the firmware category does not match the '
+          'printer or the version is newer than any published release.')
+    print('Sent model %r, spec %r, firmware %s %s' % (
+      label_model_name(model), spec, cat, version))
+    return
+
+  path = xml.findtext('FirmUpdateInfo/Firm/Path')
+  if versionCheck != '0' or not path:
+    print('No firmware update info path found')
+    return
+
+  # PATH points at a .PRV package that only holds release notes and a
+  # thumbnail.  The firmware itself is published next to it as .PDZ, a zip
+  # holding a single .PD3 firmware image.
+  base, ext = os.path.splitext(path)
+  if ext.lower() != '.prv':
+    print('ERROR: unexpected firmware info path %s' % path)
+    return
+
+  pdzURL = base + '.PDZ'
+  pdzFile = pdzURL.split('/')[-1]
+
+  if args.check:
+    show_label_update(cat, version, path, pdzURL)
+    return
+
+  print('Downloading %s from vendor server...' % pdzFile)
+  sys.stdout.flush()
+  download_file(pdzURL, pdzFile)
+
+  with zipfile.ZipFile(pdzFile) as pdz:
+    images = [n for n in pdz.namelist() if n.lower().endswith('.pd3')]
+    if len(images) != 1:
+      print('ERROR: expected one .PD3 image in %s, found %s' % (
+        pdzFile, pdz.namelist()))
+      return
+
+    imageFile = os.path.basename(images[0])
+    with pdz.open(images[0]) as src, open(imageFile, 'wb') as f:
+      shutil.copyfileobj(src, f)
+
+  print('Firmware package downloaded to %s' % pdzFile)
+  print('Firmware image extracted to %s' % imageFile)
+  print('Uploading label printer firmware is not supported by this tool; '
+        'use the vendor\'s tools or SDK to send it to the printer.')
+
+
 for entry in firmInfo:
   print()
-  update_firmware(entry['cat'], entry['version'])
+  if labelPrinter: update_label_firmware(entry['cat'], entry['version'])
+  else: update_firmware(entry['cat'], entry['version'])
 
 print()
 print('Success')
